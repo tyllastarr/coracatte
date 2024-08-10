@@ -16,7 +16,7 @@ client.on("message", (channel, tags, message, self) => {
     player.play({
         path: './meow.wav',
     }).then(() => {
-        console.log('The wav file started to be played successfully.');
+        console.log('Meow!  ' + message.toString);
     }).catch((error) => {
         console.error(error);
     });
