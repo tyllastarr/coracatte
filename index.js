@@ -11,6 +11,10 @@ const client = new tmi.Client({
 
 client.connect();
 
+client.on("connected", (address, port) => {
+    console.log("Meow!  Connected and ready!")
+})
+
 client.on("message", (channel, tags, message, self) => {
     player.play({
         path: './meow.wav',
