@@ -17,9 +17,9 @@ client.on("connected", (address, port) => {
 
 client.on("message", (channel, tags, message, self) => {
     player.play({
-        path: './meow.wav',
+        path: "./meow.wav",
     }).then(() => {
-        console.log('Meow!  ' + tags["display-name"] + " said \"" + message + "\"");
+        console.log("Meow!  " + tags["display-name"] + " said \"" + message + "\"");
     }).catch((error) => {
         console.error(error);
     });
