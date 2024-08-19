@@ -131,3 +131,6 @@ dist
 
 # Batch files
 *.bat
+
+# Config files
+config.json
