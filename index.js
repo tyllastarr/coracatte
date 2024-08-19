@@ -26,10 +26,12 @@ discordClient.once(discord.Events.ClientReady, readyClient => {
 discordClient.login(discordToken.token);
 
 twitchClient.on("message", (channel, tags, message, self) => {
+    var fullMessage;
     player.play({
         path: "./meow.wav",
     }).then(() => {
-        console.log("Meow!  " + tags["display-name"] + " said \"" + message + "\"");
+        fullMessage = ("Meow!  " + tags["display-name"] + " said \"" + message + "\"");
+        console.log(fullMessage);
     }).catch((error) => {
         console.error(error);
     });
