@@ -32,6 +32,7 @@ twitchClient.on("message", (channel, tags, message, self) => {
     }).then(() => {
         fullMessage = ("Meow!  " + tags["display-name"] + " said \"" + message + "\"");
         console.log(fullMessage);
+        discordClient.channels.cache.get("1047634550303506472").send(fullMessage);
     }).catch((error) => {
         console.error(error);
     });
