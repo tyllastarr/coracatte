@@ -1,4 +1,4 @@
-# katcatte
+# CoraCatte
 Repo for my custom Twitch/Discord bot
 
 ## Functionalities
