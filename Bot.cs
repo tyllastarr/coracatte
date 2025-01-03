@@ -30,7 +30,7 @@ namespace CoraCatte
 
         private void Client_OnMessageReceived(object sender, OnMessageReceivedArgs e)
         {
-            // TODO: Add 
+            // TODO: Add client message received function
         }
     }
 }
