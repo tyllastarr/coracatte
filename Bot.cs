@@ -7,8 +7,8 @@ using TwitchLib.Client.Extensions;
 using TwitchLib.Client.Models;
 using TwitchLib.Communication.Clients;
 using TwitchLib.Communication.Models;
-using Discord.WebSocket;
 using Discord;
+using Discord.WebSocket;
 
 namespace CoraCatte
 {
