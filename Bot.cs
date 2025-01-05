@@ -49,6 +49,8 @@ namespace CoraCatte
             TwitchClient = new TwitchClient(customClient);
             TwitchClient.Initialize(twitchCredentials, TwitchChannel);
 
+            LoadDiscord();
+
             TwitchClient.OnMessageReceived += Client_OnMessageReceived;
         }
 
@@ -66,6 +68,11 @@ namespace CoraCatte
             await DiscordClient.StartAsync();
 
             await Task.Delay(-1);
+        }
+
+        public static async Task MeowInDiscord(string messageString)
+        {
+            // TODO: Add meows
         }
 
         private static Task DiscordLog(LogMessage logMessage)
