@@ -11,7 +11,7 @@ const twitchClient = new tmi.Client({
     channels: ["tylla"]
 });
 
-const discordClient = new discord.Client({intents: [discord.GatewayIntentBits.Guilds]});
+const discordClient = new discord.Client({ intents: [discord.GatewayIntentBits.Guilds] });
 
 twitchClient.connect();
 
@@ -27,13 +27,23 @@ discordClient.login(discordToken.token);
 
 twitchClient.on("message", (channel, tags, message, self) => {
     var fullMessage;
-    player.play({
-        path: "./meow.wav",
-    }).then(() => {
-        fullMessage = ("Meow!  " + tags["display-name"] + " said \"" + message + "\"");
-        console.log(fullMessage);
-        discordClient.channels.cache.get("1047634550303506472").send(fullMessage);
-    }).catch((error) => {
-        console.error(error);
-    });
+    switch (tags["display-name"]) {
+        case "KatCatte":
+            break;
+        case "Sery_Bot":
+            break;
+        case "Tylla":
+            break;
+        default:
+            player.play({
+                path: "./meow.wav",
+            }).then(() => {
+                fullMessage = ("Meow!  " + tags["display-name"] + " said \"" + message + "\"");
+                console.log(fullMessage);
+                discordClient.channels.cache.get("1047634550303506472").send(fullMessage);
+            }).catch((error) => {
+                console.error(error);
+            });
+            break;
+    }
 });
