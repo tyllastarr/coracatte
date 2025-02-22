@@ -34,6 +34,8 @@ twitchClient.on("message", (channel, tags, message, self) => {
             break;
         case "Tylla":
             break;
+        case "StreamElements":
+            break;
         default:
             player.play({
                 path: "./meow.wav",
