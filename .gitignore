@@ -134,3 +134,4 @@ dist
 
 # Config files
 config.json
+blacklist.json
