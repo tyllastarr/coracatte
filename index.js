@@ -2,7 +2,7 @@ const tmi = require("tmi.js");
 const player = require("node-wav-player");
 const discord = require("discord.js");
 const discordToken = require("./config.json");
-const blacklist = require("./blacklist.json")
+const blacklist = require("./blacklist.json");
 
 const twitchClient = new tmi.Client({
     connection: {
@@ -28,6 +28,7 @@ discordClient.login(discordToken.token);
 
 twitchClient.on("message", (channel, tags, message, self) => {
     var fullMessage;
+    var currentDate;
     var onBlacklist;
 
     onBlacklist = false;
@@ -42,8 +43,9 @@ twitchClient.on("message", (channel, tags, message, self) => {
         player.play({
             path: "./meow.wav",
         }).then(() => {
+            currentDate = new Date();
             fullMessage = ("Meow!  " + tags["display-name"] + " said \"" + message + "\"");
-            console.log(fullMessage);
+            console.log("[" + currentDate.getHours() + ":" + currentDate.getMinutes + "] " + fullMessage);
             discordClient.channels.cache.get("1047634550303506472").send(fullMessage);
         }).catch((error) => {
             console.error(error);
