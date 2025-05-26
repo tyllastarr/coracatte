@@ -3,6 +3,7 @@ const player = require("node-wav-player");
 const discord = require("discord.js");
 const discordToken = require("./config.json");
 const blacklist = require("./blacklist.json");
+var currentDate;
 
 const twitchClient = new tmi.Client({
     connection: {
@@ -17,18 +18,19 @@ const discordClient = new discord.Client({ intents: [discord.GatewayIntentBits.G
 twitchClient.connect();
 
 twitchClient.on("connected", (address, port) => {
-    console.log("Meow!  Connected to Twitch and ready!")
+    currentDate = new Date();
+    console.log("[" + currentDate.getHours() + ":" + currentDate.getMinutes() + "] " + "Meow!  Connected to Twitch and ready!")
 })
 
 discordClient.once(discord.Events.ClientReady, readyClient => {
-    console.log("Meow!  Connected to Discord and ready!");
+    currentDate = new Date();
+    console.log("[" + currentDate.getHours() + ":" + currentDate.getMinutes() + "] " + "Meow!  Connected to Discord and ready!");
 });
 
 discordClient.login(discordToken.token);
 
 twitchClient.on("message", (channel, tags, message, self) => {
     var fullMessage;
-    var currentDate;
     var onBlacklist;
 
     onBlacklist = false;
@@ -45,7 +47,7 @@ twitchClient.on("message", (channel, tags, message, self) => {
         }).then(() => {
             currentDate = new Date();
             fullMessage = ("Meow!  " + tags["display-name"] + " said \"" + message + "\"");
-            console.log("[" + currentDate.getHours() + ":" + currentDate.getMinutes + "] " + fullMessage);
+            console.log("[" + currentDate.getHours() + ":" + currentDate.getMinutes() + "] " + fullMessage);
             discordClient.channels.cache.get("1047634550303506472").send(fullMessage);
         }).catch((error) => {
             console.error(error);
