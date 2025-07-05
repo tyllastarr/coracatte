@@ -1,7 +1,7 @@
 const tmi = require("tmi.js");
 const player = require("node-wav-player");
 const discord = require("discord.js");
-const discordToken = require("./config.json");
+const config = require("./config.json");
 const blacklist = require("./blacklist.json");
 var currentDate;
 var hourNum;
@@ -13,6 +13,10 @@ const twitchClient = new tmi.Client({
     connection: {
         secure: true,
         reconnect: true
+    },
+    identity: {
+        username: config.twitch.username,
+        password: config.twitch.token
     },
     channels: ["tylla"]
 });
@@ -31,7 +35,7 @@ discordClient.once(discord.Events.ClientReady, readyClient => {
     console.log("[" + hourString + ":" + minuteString + "] " + "Meow!  Connected to Discord and ready!");
 });
 
-discordClient.login(discordToken.token);
+discordClient.login(config.discord.token);
 
 twitchClient.on("message", (channel, tags, message, self) => {
     var fullMessage;
@@ -57,6 +61,18 @@ twitchClient.on("message", (channel, tags, message, self) => {
         }).catch((error) => {
             console.error(error);
         });
+    }
+
+    if(message == "!resetCheckinCount") {
+        const badges = tags.badges || {};
+        const isBroadcaster = badges.broadcaster;
+        const isMod = badges.moderator;
+        const isModUp = isBroadcaster || isMod;
+        if(isModUp) {
+            twitchClient.say(channel, "Meow!  When the checkins are finished, they wil be reset!"); // FIXME: This is a debug line
+        } else {
+            twitchClient.say(channel, "Meow!  Only mods can reset the checkins!");          
+        }
     }
 });
 
