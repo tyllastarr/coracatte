@@ -3,6 +3,8 @@ const player = require("node-wav-player");
 const discord = require("discord.js");
 const config = require("./config.json");
 const blacklist = require("./blacklist.json");
+const checkinDiscords = require("./checkinDiscords.json");
+const fs = require("fs");
 var currentDate;
 var hourNum;
 var minuteNum;
@@ -70,6 +72,13 @@ twitchClient.on("message", (channel, tags, message, self) => {
         const isModUp = isBroadcaster || isMod;
         if(isModUp) {
             twitchClient.say(channel, "Meow!  When the checkins are finished, they wil be reset!"); // FIXME: This is a debug line
+            var newJson = {};
+            checkinDiscords.discords.forEach(function(discordItem) {
+                let newId = discordItem.id;
+                newJson.push({newId: []}); // FIXME: This currently doesn't work
+            })
+            console.log(newJson);
+            // fs.writeFile("./checkins.json", newJson); // FIXME: Currently disabled until I can figure out the rest
         } else {
             twitchClient.say(channel, "Meow!  Only mods can reset the checkins!");          
         }
