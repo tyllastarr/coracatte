@@ -1,7 +1,7 @@
 const tmi = require("tmi.js");
 const player = require("node-wav-player");
 const discord = require("discord.js");
-const discordToken = require("./config.json");
+const config = require("./config.json");
 const blacklist = require("./blacklist.json");
 var currentDate;
 var hourNum;
@@ -31,7 +31,7 @@ discordClient.once(discord.Events.ClientReady, readyClient => {
     console.log("[" + hourString + ":" + minuteString + "] " + "Meow!  Connected to Discord and ready!");
 });
 
-discordClient.login(discordToken.token);
+discordClient.login(config.discord.token);
 
 twitchClient.on("message", (channel, tags, message, self) => {
     var fullMessage;
