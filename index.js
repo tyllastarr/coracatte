@@ -71,14 +71,14 @@ twitchClient.on("message", (channel, tags, message, self) => {
         const isMod = badges.moderator;
         const isModUp = isBroadcaster || isMod;
         if(isModUp) {
-            twitchClient.say(channel, "Meow!  When the checkins are finished, they wil be reset!"); // FIXME: This is a debug line
-            var newJson = {};
+            var newJson = {"checkins": []};
             checkinDiscords.discords.forEach(function(discordItem) {
                 let newId = discordItem.id;
-                newJson.push({newId: []}); // FIXME: This currently doesn't work
+                newJson.checkins.push({[newId]: []});
             })
             console.log(newJson);
-            // fs.writeFile("./checkins.json", newJson); // FIXME: Currently disabled until I can figure out the rest
+            fs.writeFileSync("checkins.json", JSON.stringify(newJson));
+            twitchClient.say(channel, "Meow!  The checkins have been reset!");
         } else {
             twitchClient.say(channel, "Meow!  Only mods can reset the checkins!");          
         }

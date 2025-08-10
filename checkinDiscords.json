@@ -19,6 +19,10 @@
         {
             "id": "macPac",
             "checkin": "Mac Pac Checkin"
+        },
+        {
+            "id": "streamersVortex",
+            "checkin": "Streamers Vortex Checkin"
         }
     ]
 }
