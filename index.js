@@ -1,4 +1,4 @@
-const tmi = require("tmi.js");
+const tmi = require("tmi.js"); // FIXME: Dump this garbage
 const player = require("node-wav-player");
 const discord = require("discord.js");
 const config = require("./config.json");
@@ -9,7 +9,7 @@ var minuteNum;
 var hourString;
 var minuteString;
 
-const twitchClient = new tmi.Client({
+const twitchClient = new tmi.Client({ // FIXME: Uses TMI
     connection: {
         secure: true,
         reconnect: true
@@ -19,9 +19,9 @@ const twitchClient = new tmi.Client({
 
 const discordClient = new discord.Client({ intents: [discord.GatewayIntentBits.Guilds] });
 
-twitchClient.connect();
+twitchClient.connect(); // FIXME: Uses TMI
 
-twitchClient.on("connected", (address, port) => {
+twitchClient.on("connected", (address, port) => { // FIXME: Uses TMI
     SetTime();
     console.log("[" + hourString + ":" + minuteString + "] " + "Meow!  Connected to Twitch and ready!")
 })
@@ -33,7 +33,7 @@ discordClient.once(discord.Events.ClientReady, readyClient => {
 
 discordClient.login(config.discord.token);
 
-twitchClient.on("message", (channel, tags, message, self) => {
+twitchClient.on("message", (channel, tags, message, self) => { // FIXME: Uses TMI
     var fullMessage;
     var onBlacklist;
 
