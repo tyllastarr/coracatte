@@ -1,3 +1,5 @@
+import { StaticAuthProvider } from "@twurple/auth";
+import { Bot,createBotCommand } from "@twurple/easy-bot";
 const tmi = require("tmi.js"); // FIXME: Dump this garbage
 const player = require("node-wav-player");
 const discord = require("discord.js");
