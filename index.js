@@ -4,14 +4,14 @@ import play from "node-wav-player";
 import { Client, GatewayIntentBits, Events } from "discord.js";
 import config from "./config.json" with {type: "json"};
 import blacklist from "./blacklist.json" with {type: "json"};
-const twitchAuthProvider = new StaticAuthProvider(config.twitch.clientId, config.twitch.accessToken); // FIXME: This is where the auth provider should be set
+const twitchAuthProvider = new StaticAuthProvider(config.twitch.clientId, config.twitch.accessToken);
 var currentDate;
 var hourNum;
 var minuteNum;
 var hourString;
 var minuteString;
 
-const twitchBot = new Bot({twitchAuthProvider, channels: ["tylla"]}); // FIXME: Uncaught ConfigError ConfigError: No auth provider given. Please supply the `authProvider` option. at (program) (<node_internals>/internal/modules/run_main:123:4)
+const twitchBot = new Bot({authProvider: twitchAuthProvider, channels: ["tylla"]});
 
 
 const discordClient = new Client({ intents: [GatewayIntentBits.Guilds] });
