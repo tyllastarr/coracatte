@@ -1,7 +1,8 @@
 {
-  "name": "katcatte",
-  "version": "1.0.0",
+  "name": "coracatte",
+  "version": "2.0.0",
   "description": "Repo for my custom Twitch bot",
+  "type": "module",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"

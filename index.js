@@ -1,9 +1,9 @@
 import { StaticAuthProvider } from "@twurple/auth";
-import { Bot,createBotCommand } from "@twurple/easy-bot";
-const player = require("node-wav-player");
-const discord = require("discord.js");
-const config = require("./config.json");
-const blacklist = require("./blacklist.json");
+import { Bot } from "@twurple/easy-bot";
+import { play } from "node-wav-player";
+import { Client, GatewayIntentBits, Events } from "discord.js";
+import config from "./config.json" with {type: "json"};
+import blacklist from "./blacklist.json" with {type: "json"};
 const twitchAuthProvider = new StaticAuthProvider(config.twitch.clientId, config.twitch.accessToken);
 var currentDate;
 var hourNum;
@@ -13,14 +13,14 @@ var minuteString;
 
 const twitchBot = new Bot({twitchAuthProvider, channels: ["tylla"]});
 
-const discordClient = new discord.Client({ intents: [discord.GatewayIntentBits.Guilds] });
+const discordClient = new Client({ intents: [GatewayIntentBits.Guilds] });
 
 twitchBot.onConnect(() => {
     SetTime();
     console.log("[" + hourString + ":" + minuteString + "] " + "Meow!  Connected to Twitch and ready!")
 });
 
-discordClient.once(discord.Events.ClientReady, readyClient => {
+discordClient.once(Events.ClientReady, readyClient => {
     SetTime();
     console.log("[" + hourString + ":" + minuteString + "] " + "Meow!  Connected to Discord and ready!");
 });
@@ -40,7 +40,7 @@ twitchBot.onMessage((event) => {
     });
 
     if(onBlacklist == false) {
-        player.play({
+        play({
             path: "./meow.wav",
         }).then(() => {
             SetTime();
