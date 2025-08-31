@@ -1,32 +1,24 @@
 import { StaticAuthProvider } from "@twurple/auth";
 import { Bot,createBotCommand } from "@twurple/easy-bot";
-const tmi = require("tmi.js"); // FIXME: Dump this garbage
 const player = require("node-wav-player");
 const discord = require("discord.js");
 const config = require("./config.json");
 const blacklist = require("./blacklist.json");
+const twitchAuthProvider = new StaticAuthProvider(config.twitch.clientId, config.twitch.accessToken);
 var currentDate;
 var hourNum;
 var minuteNum;
 var hourString;
 var minuteString;
 
-const twitchClient = new tmi.Client({ // FIXME: Uses TMI
-    connection: {
-        secure: true,
-        reconnect: true
-    },
-    channels: ["tylla"]
-});
+const twitchBot = new Bot({twitchAuthProvider, channels: ["tylla"]});
 
 const discordClient = new discord.Client({ intents: [discord.GatewayIntentBits.Guilds] });
 
-twitchClient.connect(); // FIXME: Uses TMI
-
-twitchClient.on("connected", (address, port) => { // FIXME: Uses TMI
+twitchBot.onConnect(() => {
     SetTime();
     console.log("[" + hourString + ":" + minuteString + "] " + "Meow!  Connected to Twitch and ready!")
-})
+});
 
 discordClient.once(discord.Events.ClientReady, readyClient => {
     SetTime();
@@ -35,14 +27,14 @@ discordClient.once(discord.Events.ClientReady, readyClient => {
 
 discordClient.login(config.discord.token);
 
-twitchClient.on("message", (channel, tags, message, self) => { // FIXME: Uses TMI
+twitchBot.onMessage((event) => {
     var fullMessage;
     var onBlacklist;
 
     onBlacklist = false;
     
     blacklist.blacklist.forEach(function(blacklistItem) {
-        if(tags["display-name"] == blacklistItem) {
+        if(event.userDisplayName == blacklistItem) {
             onBlacklist = true;
         }
     });
@@ -53,7 +45,7 @@ twitchClient.on("message", (channel, tags, message, self) => { // FIXME: Uses TM
         }).then(() => {
             SetTime();
 
-            fullMessage = ("Meow!  " + tags["display-name"] + " said \"" + message + "\"");
+            fullMessage = ("Meow!  " + event.userDisplayName + " said \"" + event.text + "\"");
             console.log("[" + hourString + ":" + minuteString + "] " + fullMessage);
             discordClient.channels.cache.get("1047634550303506472").send(fullMessage);
         }).catch((error) => {
