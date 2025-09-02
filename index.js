@@ -1,46 +1,42 @@
-const tmi = require("tmi.js");
-const player = require("node-wav-player");
-const discord = require("discord.js");
-const config = require("./config.json");
-const blacklist = require("./blacklist.json");
+import { RefreshingAuthProvider } from "@twurple/auth";
+import { Bot } from "@twurple/easy-bot";
+import player from "node-wav-player";
+import { Client, GatewayIntentBits, Events } from "discord.js";
+import config from "./config.json" with {type: "json"};
+import blacklist from "./blacklist.json" with {type: "json"};
+const twitchAuthProvider = new RefreshingAuthProvider({clientId: config.twitch.clientId, clientSecret: config.twitch.clientSecret});
 var currentDate;
 var hourNum;
 var minuteNum;
 var hourString;
 var minuteString;
 
-const twitchClient = new tmi.Client({
-    connection: {
-        secure: true,
-        reconnect: true
-    },
-    channels: ["tylla"]
-});
+await twitchAuthProvider.addUserForToken({accessToken: config.twitch.accessToken, refreshToken: config.twitch.refreshToken}, ["chat"]);
 
-const discordClient = new discord.Client({ intents: [discord.GatewayIntentBits.Guilds] });
+const twitchBot = new Bot({authProvider: twitchAuthProvider, channels: ["tylla"]});
 
-twitchClient.connect();
+const discordClient = new Client({ intents: [GatewayIntentBits.Guilds] });
 
-twitchClient.on("connected", (address, port) => {
+twitchBot.onConnect(() => {
     SetTime();
     console.log("[" + hourString + ":" + minuteString + "] " + "Meow!  Connected to Twitch and ready!")
-})
+});
 
-discordClient.once(discord.Events.ClientReady, readyClient => {
+discordClient.once(Events.ClientReady, readyClient => {
     SetTime();
     console.log("[" + hourString + ":" + minuteString + "] " + "Meow!  Connected to Discord and ready!");
 });
 
 discordClient.login(config.discord.token);
 
-twitchClient.on("message", (channel, tags, message, self) => {
+twitchBot.onMessage((event) => {
     var fullMessage;
     var onBlacklist;
 
     onBlacklist = false;
     
     blacklist.blacklist.forEach(function(blacklistItem) {
-        if(tags["display-name"] == blacklistItem) {
+        if(event.userDisplayName == blacklistItem) {
             onBlacklist = true;
         }
     });
@@ -51,7 +47,7 @@ twitchClient.on("message", (channel, tags, message, self) => {
         }).then(() => {
             SetTime();
 
-            fullMessage = ("Meow!  " + tags["display-name"] + " said \"" + message + "\"");
+            fullMessage = ("Meow!  " + event.userDisplayName + " said \"" + event.text + "\"");
             console.log("[" + hourString + ":" + minuteString + "] " + fullMessage);
             discordClient.channels.cache.get("1047634550303506472").send(fullMessage);
         }).catch((error) => {
