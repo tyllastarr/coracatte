@@ -131,6 +131,7 @@ dist
 
 # Batch files
 *.bat
+*.sh
 
 # Config files
 config.json
