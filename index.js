@@ -56,8 +56,8 @@ twitchBot.onMessage((event) => {
         });
     }
 
-    if(message == "!resetCheckinCount") {
-        const badges = tags.badges || {};
+    if(event.text == "!resetCheckinCount") {
+        const badges = tags.badges || {}; // FIXME: This currently crashes the bot, probably because it uses old TMI code
         const isBroadcaster = badges.broadcaster;
         const isMod = badges.moderator;
         const isModUp = isBroadcaster || isMod;
