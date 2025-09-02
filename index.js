@@ -1,6 +1,6 @@
 import { RefreshingAuthProvider } from "@twurple/auth";
 import { Bot } from "@twurple/easy-bot";
-import play from "node-wav-player";
+import player from "node-wav-player";
 import { Client, GatewayIntentBits, Events } from "discord.js";
 import config from "./config.json" with {type: "json"};
 import blacklist from "./blacklist.json" with {type: "json"};
@@ -42,7 +42,7 @@ twitchBot.onMessage((event) => {
     });
 
     if(onBlacklist == false) {
-        play({
+        player.play({
             path: "./meow.wav",
         }).then(() => {
             SetTime();
