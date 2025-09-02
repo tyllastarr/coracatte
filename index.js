@@ -11,8 +11,9 @@ var minuteNum;
 var hourString;
 var minuteString;
 
-const twitchBot = new Bot({authProvider: twitchAuthProvider, channels: ["tylla"]});
+await twitchAuthProvider.addUserForToken({accessToken: config.twitch.accessToken, refreshToken: config.twitch.refreshToken}, ["chat"]);
 
+const twitchBot = new Bot({authProvider: twitchAuthProvider, channels: ["tylla"]});
 
 const discordClient = new Client({ intents: [GatewayIntentBits.Guilds] });
 
