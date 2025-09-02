@@ -1,10 +1,10 @@
-import { StaticAuthProvider } from "@twurple/auth";
+import { RefreshingAuthProvider } from "@twurple/auth";
 import { Bot } from "@twurple/easy-bot";
 import play from "node-wav-player";
 import { Client, GatewayIntentBits, Events } from "discord.js";
 import config from "./config.json" with {type: "json"};
 import blacklist from "./blacklist.json" with {type: "json"};
-const twitchAuthProvider = new StaticAuthProvider(config.twitch.clientId, config.twitch.accessToken);
+const twitchAuthProvider = new RefreshingAuthProvider({clientId: config.twitch.clientId, clientSecret: config.twitch.clientSecret});
 var currentDate;
 var hourNum;
 var minuteNum;
