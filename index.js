@@ -5,6 +5,7 @@ import { Client, GatewayIntentBits, Events } from "discord.js";
 import config from "./config.json" with {type: "json"};
 import blacklist from "./blacklist.json" with {type: "json"};
 const twitchAuthProvider = new RefreshingAuthProvider({clientId: config.twitch.clientId, clientSecret: config.twitch.clientSecret});
+
 var currentDate;
 var hourNum;
 var minuteNum;
@@ -53,6 +54,25 @@ twitchBot.onMessage((event) => {
         }).catch((error) => {
             console.error(error);
         });
+    }
+
+    if(message == "!resetCheckinCount") {
+        const badges = tags.badges || {};
+        const isBroadcaster = badges.broadcaster;
+        const isMod = badges.moderator;
+        const isModUp = isBroadcaster || isMod;
+        if(isModUp) {
+            var newJson = {"checkins": []};
+            checkinDiscords.discords.forEach(function(discordItem) {
+                let newId = discordItem.id;
+                newJson.checkins.push({[newId]: []});
+            })
+            console.log(newJson);
+            fs.writeFileSync("checkins.json", JSON.stringify(newJson));
+            twitchClient.say(channel, "Meow!  The checkins have been reset!");
+        } else {
+            twitchClient.say(channel, "Meow!  Only mods can reset the checkins!");          
+        }
     }
 });
 
