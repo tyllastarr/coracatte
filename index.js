@@ -1,5 +1,7 @@
 import { RefreshingAuthProvider } from "@twurple/auth";
+import { ApiClient } from "@twurple/api";
 import { Bot } from "@twurple/easy-bot";
+import { EventSubWsListener } from "@twurple/eventsub-ws";
 import player from "node-wav-player";
 import { Client, GatewayIntentBits, Events } from "discord.js";
 import config from "./config.json" with {type: "json"};
@@ -14,6 +16,10 @@ var minuteString;
 
 await twitchAuthProvider.addUserForToken({accessToken: config.twitch.accessToken, refreshToken: config.twitch.refreshToken}, ["chat"]);
 
+const twitchApiClient = new ApiClient({twitchAuthProvider});
+
+const listener = new EventSubWsListener({twitchApiClient});
+
 const twitchBot = new Bot({authProvider: twitchAuthProvider, channels: ["tylla"]});
 
 const discordClient = new Client({ intents: [GatewayIntentBits.Guilds] });
@@ -22,6 +28,8 @@ twitchBot.onConnect(() => {
     SetTime();
     console.log("[" + hourString + ":" + minuteString + "] " + "Meow!  Connected to Twitch and ready!")
 });
+
+listener.start();
 
 discordClient.once(Events.ClientReady, readyClient => {
     SetTime();
