@@ -11,8 +11,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@twurple/auth": "^7.4.0",
-    "@twurple/easy-bot": "^7.4.0",
+    "@twurple/auth": "^8.0.1",
+    "@twurple/easy-bot": "^8.0.1",
     "discord.js": "^14.14.1",
     "node-wav-player": "^1.0.0"
   }
