@@ -63,25 +63,6 @@ twitchBot.onMessage((event) => {
             console.error(error);
         });
     }
-
-    if(event.text == "!resetCheckinCount") {
-        const badges = tags.badges || {}; // FIXME: This currently crashes the bot, probably because it uses old TMI code
-        const isBroadcaster = badges.broadcaster;
-        const isMod = badges.moderator;
-        const isModUp = isBroadcaster || isMod;
-        if(isModUp) {
-            var newJson = {"checkins": []};
-            checkinDiscords.discords.forEach(function(discordItem) {
-                let newId = discordItem.id;
-                newJson.checkins.push({[newId]: []});
-            })
-            console.log(newJson);
-            fs.writeFileSync("checkins.json", JSON.stringify(newJson));
-            twitchClient.say(channel, "Meow!  The checkins have been reset!");
-        } else {
-            twitchClient.say(channel, "Meow!  Only mods can reset the checkins!");          
-        }
-    }
 });
 
 function SetTime() {
