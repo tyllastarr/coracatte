@@ -65,6 +65,12 @@ twitchBot.onMessage((event) => {
     }
 });
 
+const testEvents = listener.onChannelRedemptionAdd(config.twitch.channelId, e => {
+    var testMessage;
+    testMessage = (e.broadcasterDisplayName + " redeemed event ID " + e.id);
+    discordClient.channels.cache.get("1443411567315255440").send(testMessage);
+});
+
 function SetTime() {
     currentDate = new Date();
     hourNum = currentDate.getHours();
