@@ -16,9 +16,9 @@ var minuteString;
 
 await twitchAuthProvider.addUserForToken({accessToken: config.twitch.accessToken, refreshToken: config.twitch.refreshToken}, ["chat"]);
 
-const twitchApiClient = new ApiClient({twitchAuthProvider});
+const twitchApiClient = new ApiClient({authProvider: twitchAuthProvider});
 
-const listener = new EventSubWsListener({twitchApiClient});
+const listener = new EventSubWsListener({apiClient: twitchApiClient});
 
 const twitchBot = new Bot({authProvider: twitchAuthProvider, channels: ["tylla"]});
 
