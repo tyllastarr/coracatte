@@ -11,7 +11,7 @@ var minuteNum;
 var hourString;
 var minuteString;
 
-await twitchAuthProvider.addUserForToken({accessToken: config.twitch.accessToken, refreshToken: config.twitch.refreshToken}, ["chat"]);
+await twitchAuthProvider.addUserForToken({accessToken: config.twitch.botAccount.accessToken, refreshToken: config.twitch.botAccount.refreshToken}, ["chat"]);
 
 const twitchBot = new Bot({authProvider: twitchAuthProvider, channels: ["tylla"]});
 
