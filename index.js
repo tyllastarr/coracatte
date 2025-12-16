@@ -17,6 +17,10 @@ var minuteString;
 await twitchAuthProvider.addUserForToken({accessToken: config.twitch.botAccount.accessToken, refreshToken: config.twitch.botAccount.refreshToken}, ["chat"]);
 await twitchAuthProvider.addUserForToken({accessToken: config.twitch.broadcastAccount.accessToken, refreshToken: config.twitch.broadcastAccount.refreshToken}, ["chat"]);
 
+const scopes = twitchAuthProvider.getCurrentScopesForUser(config.twitch.channelId);
+
+console.log(scopes);
+
 const twitchApiClient = new ApiClient({authProvider: twitchAuthProvider});
 
 const listener = new EventSubWsListener({apiClient: twitchApiClient});
@@ -66,7 +70,7 @@ twitchBot.onMessage((event) => {
     }
 });
 
-const testEvents = listener.onChannelRedemptionAdd(config.twitch.broadcastAccount.accessToken, e => {
+const testEvents = listener.onChannelRedemptionAdd(config.twitch.channelId, e => {
     var testMessage;
     testMessage = (e.broadcasterDisplayName + " redeemed event ID " + e.id);
     discordClient.channels.cache.get("1443411567315255440").send(testMessage);
