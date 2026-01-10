@@ -80,10 +80,18 @@ twitchBot.onMessage((event) => {
     }
 });
 
-const testEvents = listener.onChannelRedemptionAdd(config.twitch.channelId, e => {
-    var testMessage;
-    testMessage = (e.broadcasterDisplayName + " redeemed event " + e.rewardTitle);
+const checkinRedemption = listener.onChannelRedemptionAdd(config.twitch.channelId, async (e) => {
+    const testMessage = (e.broadcasterDisplayName + " redeemed event " + e.rewardTitle);
     discordClient.channels.cache.get("1443411567315255440").send(testMessage);
+
+    try {
+        const sql = "SELECT * FROM checkins WHERE CheckinName = ?";
+        const [rows, fields] = await mysqlConnection.promise().query(sql, [e.rewardTitle]);
+        console.log(rows);
+        console.log(fields);
+    } catch (err) {
+        console.log(err);
+    }
 });
 
 function SetTime() {
