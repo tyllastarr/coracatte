@@ -17,10 +17,6 @@ var minuteString;
 await twitchAuthProvider.addUserForToken({accessToken: config.twitch.botAccount.accessToken, refreshToken: config.twitch.botAccount.refreshToken}, ["chat"]);
 await twitchAuthProvider.addUserForToken({accessToken: config.twitch.broadcastAccount.accessToken, refreshToken: config.twitch.broadcastAccount.refreshToken}, ["chat"]);
 
-const scopes = twitchAuthProvider.getCurrentScopesForUser(config.twitch.channelId);
-
-console.log(scopes);
-
 const twitchApiClient = new ApiClient({authProvider: twitchAuthProvider});
 
 const listener = new EventSubWsListener({apiClient: twitchApiClient});
