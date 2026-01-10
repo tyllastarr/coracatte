@@ -6,7 +6,7 @@ import player from "node-wav-player";
 import { Client, GatewayIntentBits, Events } from "discord.js";
 import config from "./config.json" with {type: "json"};
 import blacklist from "./blacklist.json" with {type: "json"};
-import mysql from "mysql";
+import mysql from "mysql2";
 const twitchAuthProvider = new RefreshingAuthProvider({clientId: config.twitch.clientId, clientSecret: config.twitch.clientSecret});
 
 var currentDate;
@@ -26,9 +26,22 @@ const twitchBot = new Bot({authProvider: twitchAuthProvider, channels: ["tylla"]
 
 const discordClient = new Client({ intents: [GatewayIntentBits.Guilds] });
 
+const mysqlConnection = mysql.createConnection({
+    host: config.mysql.host,
+    user: config.mysql.username,
+    password: config.mysql.password,
+    database: config.mysql.db
+});
+
+mysqlConnection.connect(err => {
+    if (err) throw err;
+    SetTime();
+    console.log("[" + hourString + ":" + minuteString + "] " + "Meow!  Connected to MySQL and ready!");
+});
+
 twitchBot.onConnect(() => {
     SetTime();
-    console.log("[" + hourString + ":" + minuteString + "] " + "Meow!  Connected to Twitch and ready!")
+    console.log("[" + hourString + ":" + minuteString + "] " + "Meow!  Connected to Twitch and ready!");
 });
 
 listener.start();
