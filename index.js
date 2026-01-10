@@ -87,8 +87,13 @@ const checkinRedemption = listener.onChannelRedemptionAdd(config.twitch.channelI
     try {
         const sql = "SELECT * FROM checkins WHERE CheckinName = ?";
         const [rows, fields] = await mysqlConnection.promise().query(sql, [e.rewardTitle]);
-        console.log(rows);
-        console.log(fields);
+//        console.log(rows);
+//        console.log(fields);
+        // Send stringified results to avoid "cannot send an empty message"
+        discordClient.channels.cache.get("1443411567315255440").send(JSON.stringify(rows, null, 2));
+        // Only send a compact summary of the fields to avoid Discord length limits
+        const compactFields = fields.map(f => ({ name: f.name, type: f.type, columnType: f.columnType, flags: f.flags }));
+        discordClient.channels.cache.get("1443411567315255440").send(JSON.stringify(compactFields, null, 2));
     } catch (err) {
         console.log(err);
     }
