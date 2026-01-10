@@ -68,7 +68,7 @@ twitchBot.onMessage((event) => {
 
 const testEvents = listener.onChannelRedemptionAdd(config.twitch.channelId, e => {
     var testMessage;
-    testMessage = (e.broadcasterDisplayName + " redeemed event ID " + e.id);
+    testMessage = (e.broadcasterDisplayName + " redeemed event " + e.rewardTitle);
     discordClient.channels.cache.get("1443411567315255440").send(testMessage);
 });
 
