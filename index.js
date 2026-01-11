@@ -85,12 +85,14 @@ const checkinRedemption = listener.onChannelRedemptionAdd(config.twitch.channelI
     discordClient.channels.cache.get("1443411567315255440").send(testMessage);
 
     try {
-        const sql = "SELECT * FROM checkins WHERE CheckinName = ?";
-        const [rows, fields] = await mysqlConnection.promise().query(sql, [e.rewardTitle]);
-        if(rows.length == 0) {
+        const sqlSelect = "SELECT * FROM checkins WHERE CheckinName = ?";
+        const [rows, fields] = await mysqlConnection.promise().query(sqlSelect, [e.rewardTitle]);
+        if(rows.length != 0) {
             console.log("Empty");
         } else {
             console.log(rows[0].CheckinID);
+            const sqlInsert = "INSERT INTO checkinEvents(CheckinID, Username) VALUES(?, ?)";
+            await mysqlConnection.promise().query(sqlInsert, [rows[0].CheckinID, e.broadcasterDisplayName]);
         }
         // Send stringified results to avoid "cannot send an empty message"
         discordClient.channels.cache.get("1443411567315255440").send(JSON.stringify(rows, null, 2));
