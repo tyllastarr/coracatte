@@ -94,6 +94,15 @@ const checkinRedemption = listener.onChannelRedemptionAdd(config.twitch.channelI
     }
 });
 
+const bittiesRedemption = listener.onChannelBitsUse(config.twitch.channelId, async (e) => {
+    try {
+        const sqlInsert = "INSERT INTO checkinEvents(CheckID, Username) VALUES(12, ?)";
+        await mysqlConnection.promise().query(sqlInsert, [e.broadcasterDisplayName]);
+    } catch(err) {
+        console.log(err);
+    }
+});
+
 function SetTime() {
     currentDate = new Date();
     hourNum = currentDate.getHours();
