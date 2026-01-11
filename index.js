@@ -81,24 +81,14 @@ twitchBot.onMessage((event) => {
 });
 
 const checkinRedemption = listener.onChannelRedemptionAdd(config.twitch.channelId, async (e) => {
-    const testMessage = (e.broadcasterDisplayName + " redeemed event " + e.rewardTitle);
-    discordClient.channels.cache.get("1443411567315255440").send(testMessage);
-
     try {
         const sqlSelect = "SELECT * FROM checkins WHERE CheckinName = ?";
         const [rows, fields] = await mysqlConnection.promise().query(sqlSelect, [e.rewardTitle]);
         if(rows.length != 0) {
-            console.log("Empty");
-        } else {
             console.log(rows[0].CheckinID);
             const sqlInsert = "INSERT INTO checkinEvents(CheckinID, Username) VALUES(?, ?)";
             await mysqlConnection.promise().query(sqlInsert, [rows[0].CheckinID, e.broadcasterDisplayName]);
         }
-        // Send stringified results to avoid "cannot send an empty message"
-        discordClient.channels.cache.get("1443411567315255440").send(JSON.stringify(rows, null, 2));
-        // Only send a compact summary of the fields to avoid Discord length limits
-        const compactFields = fields.map(f => ({ name: f.name, type: f.type, columnType: f.columnType, flags: f.flags }));
-        discordClient.channels.cache.get("1443411567315255440").send(JSON.stringify(compactFields, null, 2));
     } catch (err) {
         console.log(err);
     }
