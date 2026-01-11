@@ -1,10 +1,14 @@
 import { RefreshingAuthProvider } from "@twurple/auth";
+import { ApiClient } from "@twurple/api";
 import { Bot } from "@twurple/easy-bot";
+import { EventSubWsListener } from "@twurple/eventsub-ws";
 import player from "node-wav-player";
 import { Client, GatewayIntentBits, Events } from "discord.js";
 import config from "./config.json" with {type: "json"};
 import blacklist from "./blacklist.json" with {type: "json"};
+import mysql from "mysql2";
 const twitchAuthProvider = new RefreshingAuthProvider({clientId: config.twitch.clientId, clientSecret: config.twitch.clientSecret});
+
 var currentDate;
 var hourNum;
 var minuteNum;
@@ -12,15 +16,35 @@ var hourString;
 var minuteString;
 
 await twitchAuthProvider.addUserForToken({accessToken: config.twitch.botAccount.accessToken, refreshToken: config.twitch.botAccount.refreshToken}, ["chat"]);
+await twitchAuthProvider.addUserForToken({accessToken: config.twitch.broadcastAccount.accessToken, refreshToken: config.twitch.broadcastAccount.refreshToken}, ["chat"]);
+
+const twitchApiClient = new ApiClient({authProvider: twitchAuthProvider});
+
+const listener = new EventSubWsListener({apiClient: twitchApiClient});
 
 const twitchBot = new Bot({authProvider: twitchAuthProvider, channels: ["tylla"]});
 
 const discordClient = new Client({ intents: [GatewayIntentBits.Guilds] });
 
+const mysqlConnection = mysql.createConnection({
+    host: config.mysql.host,
+    user: config.mysql.username,
+    password: config.mysql.password,
+    database: config.mysql.db
+});
+
+mysqlConnection.connect(err => {
+    if (err) throw err;
+    SetTime();
+    console.log("[" + hourString + ":" + minuteString + "] " + "Meow!  Connected to MySQL and ready!");
+});
+
 twitchBot.onConnect(() => {
     SetTime();
-    console.log("[" + hourString + ":" + minuteString + "] " + "Meow!  Connected to Twitch and ready!")
+    console.log("[" + hourString + ":" + minuteString + "] " + "Meow!  Connected to Twitch and ready!");
 });
+
+listener.start();
 
 discordClient.once(Events.ClientReady, readyClient => {
     SetTime();
@@ -53,6 +77,20 @@ twitchBot.onMessage((event) => {
         }).catch((error) => {
             console.error(error);
         });
+    }
+});
+
+const checkinRedemption = listener.onChannelRedemptionAdd(config.twitch.channelId, async (e) => {
+    try {
+        const sqlSelect = "SELECT * FROM checkins WHERE CheckinName = ?";
+        const [rows, fields] = await mysqlConnection.promise().query(sqlSelect, [e.rewardTitle]);
+        if(rows.length != 0) {
+            console.log(rows[0].CheckinID);
+            const sqlInsert = "INSERT INTO checkinEvents(CheckinID, Username) VALUES(?, ?)";
+            await mysqlConnection.promise().query(sqlInsert, [rows[0].CheckinID, e.broadcasterDisplayName]);
+        }
+    } catch (err) {
+        console.log(err);
     }
 });
 
