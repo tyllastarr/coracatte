@@ -82,12 +82,11 @@ twitchBot.onMessage((event) => {
 
 const checkinRedemption = listener.onChannelRedemptionAdd(config.twitch.channelId, async (e) => {
     try {
-        const sqlSelect = "SELECT * FROM checkins WHERE CheckinName = ?";
+        const sqlSelect = "SELECT * FROM eventTypes WHERE EventTypeName = ?";
         const [rows, fields] = await mysqlConnection.promise().query(sqlSelect, [e.rewardTitle]);
         if(rows.length != 0) {
-            console.log(rows[0].CheckinID);
-            const sqlInsert = "INSERT INTO checkinEvents(CheckinID, Username) VALUES(?, ?)";
-            await mysqlConnection.promise().query(sqlInsert, [rows[0].CheckinID, e.broadcasterDisplayName]);
+            const sqlInsert = "INSERT INTO eventInstances(EventTypeID, Username) VALUES(?, ?)";
+            await mysqlConnection.promise().query(sqlInsert, [rows[0].EventTypeID, e.broadcasterDisplayName]);
         }
     } catch (err) {
         console.log(err);
