@@ -86,7 +86,7 @@ const checkinRedemption = listener.onChannelRedemptionAdd(config.twitch.channelI
         const [rows, fields] = await mysqlConnection.promise().query(sqlSelect, [e.rewardTitle]);
         if(rows.length != 0) {
             const sqlInsert = "INSERT INTO eventInstances(EventTypeID, Username) VALUES(?, ?)";
-            await mysqlConnection.promise().query(sqlInsert, [rows[0].EventTypeID, e.broadcasterDisplayName]);
+            await mysqlConnection.promise().query(sqlInsert, [rows[0].EventTypeID, e.userDisplayName]);
         }
     } catch (err) {
         console.log(err);
