@@ -96,10 +96,37 @@ const checkinRedemption = listener.onChannelRedemptionAdd(config.twitch.channelI
 const bittiesRedemption = listener.onChannelBitsUse(config.twitch.channelId, async (e) => {
     try {
         const sqlInsert = "INSERT INTO checkinEvents(CheckID, Username) VALUES(12, ?)";
-        await mysqlConnection.promise().query(sqlInsert, [e.broadcasterDisplayName]);
+        await mysqlConnection.promise().query(sqlInsert, [e.userDisplayName]);
     } catch(err) {
         console.log(err);
     }
+});
+
+const followRedemption = listener.onChannelFollow(config.twitch.channelId, config.twitch.channelId, async (e) => {
+    try {
+        const sqlInsert = "INSERT INTO checkinEvents(CheckID, Username) VALUES(9, ?)";
+        await mysqlConnection.promise().query(sqlInsert, [e.userDisplayName]);
+    } catch(err) {
+        console.log(err);
+    }    
+});
+
+const raidRedemption = listener.onChannelRaidTo(config.twitch.channelId, async (e) => {
+    try {
+        const sqlInsert = "INSERT INTO checkinEvents(CheckID, Username) VALUES(10, ?)";
+        await mysqlConnection.promise().query(sqlInsert, [e.raidingBroadcasterName]);
+    } catch(err) {
+        console.log(err);
+    }
+});
+
+const subRedemption = listener.onChannelSubscription(config.twitch.channelId, async (e) => {
+    try {
+        const sqlInsert = "INSERT INTO checkinEvents(CheckID, Username) VALUES(11, ?)";
+        await mysqlConnection.promise().query(sqlInsert, [e.userDisplayName]);
+    } catch(err) {
+        console.log(err);
+    }    
 });
 
 function SetTime() {
