@@ -85,6 +85,9 @@ const checkinRedemption = listener.onChannelRedemptionAdd(config.twitch.channelI
         const sqlSelect = "SELECT * FROM eventTypes WHERE EventTypeName = ?";
         const [rows, fields] = await mysqlConnection.promise().query(sqlSelect, [e.rewardTitle]);
         if(rows.length != 0) {
+            SetTime();
+            console.log("[" + hourString + ":" + minuteString + "] Meow!  " + e.userDisplayName + " redeemed " + e.rewardTitle + "!")
+            discordClient.channels.cache.get("1047634550303506472").send("Meow!  " + e.userDisplayName + " redeemed " + e.rewardTitle + "!");
             const sqlInsert = "INSERT INTO eventInstances(EventTypeID, Username) VALUES(?, ?)";
             await mysqlConnection.promise().query(sqlInsert, [rows[0].EventTypeID, e.userDisplayName]);
         }
@@ -95,6 +98,9 @@ const checkinRedemption = listener.onChannelRedemptionAdd(config.twitch.channelI
 
 const bittiesRedemption = listener.onChannelBitsUse(config.twitch.channelId, async (e) => {
     try {
+            SetTime();
+            console.log("[" + hourString + ":" + minuteString + "] Meow!  " + e.userDisplayName + " sent some bitties!")
+        discordClient.channels.cache.get("1047634550303506472").send("Meow!  " + e.userDisplayName + " sent some bitties!");        
         const sqlInsert = "INSERT INTO eventInstances(EventTypeID, Username) VALUES(12, ?)";
         await mysqlConnection.promise().query(sqlInsert, [e.userDisplayName]);
     } catch(err) {
@@ -104,6 +110,9 @@ const bittiesRedemption = listener.onChannelBitsUse(config.twitch.channelId, asy
 
 const followRedemption = listener.onChannelFollow(config.twitch.channelId, config.twitch.channelId, async (e) => {
     try {
+        SetTime();
+        console.log("[" + hourString + ":" + minuteString + "] Meow!  " + e.userDisplayName + " followed!")
+        discordClient.channels.cache.get("1047634550303506472").send("Meow!  " + e.userDisplayName + " followed!");        
         const sqlInsert = "INSERT INTO eventInstances(EventTypeID, Username) VALUES(9, ?)";
         await mysqlConnection.promise().query(sqlInsert, [e.userDisplayName]);
     } catch(err) {
@@ -113,6 +122,9 @@ const followRedemption = listener.onChannelFollow(config.twitch.channelId, confi
 
 const raidRedemption = listener.onChannelRaidTo(config.twitch.channelId, async (e) => {
     try {
+        SetTime();
+        console.log("[" + hourString + ":" + minuteString + "] Meow!  " + e.userDisplayName + " raided!")
+        discordClient.channels.cache.get("1047634550303506472").send("Meow!  " + e.userDisplayName + " raided!");        
         const sqlInsert = "INSERT INTO eventInstances(EventTypeID, Username) VALUES(10, ?)";
         await mysqlConnection.promise().query(sqlInsert, [e.raidingBroadcasterName]);
     } catch(err) {
@@ -122,6 +134,9 @@ const raidRedemption = listener.onChannelRaidTo(config.twitch.channelId, async (
 
 const subRedemption = listener.onChannelSubscription(config.twitch.channelId, async (e) => {
     try {
+        SetTime();
+        console.log("[" + hourString + ":" + minuteString + "] Meow!  " + e.userDisplayName + " subscribed!")
+        discordClient.channels.cache.get("1047634550303506472").send("Meow!  " + e.userDisplayName + " subscribed!");        
         const sqlInsert = "INSERT INTO checkinEvents(CheckID, Username) VALUES(11, ?)";
         await mysqlConnection.promise().query(sqlInsert, [e.userDisplayName]);
     } catch(err) {
