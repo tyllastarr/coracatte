@@ -53,14 +53,14 @@ discordClient.once(Events.ClientReady, readyClient => {
 
 discordClient.login(config.discord.token);
 
-twitchBot.onMessage((event) => {
+twitchBot.onMessage((e) => {
     var fullMessage;
     var onBlacklist;
 
     onBlacklist = false;
     
     blacklist.blacklist.forEach(function(blacklistItem) {
-        if(event.userDisplayName == blacklistItem) {
+        if(e.userDisplayName == blacklistItem) {
             onBlacklist = true;
         }
     });
@@ -71,12 +71,40 @@ twitchBot.onMessage((event) => {
         }).then(() => {
             SetTime();
 
-            fullMessage = ("Meow!  " + event.userDisplayName + " said \"" + event.text + "\"");
+            fullMessage = ("Meow!  " + e.userDisplayName + " said \"" + e.text + "\"");
             console.log("[" + hourString + ":" + minuteString + "] " + fullMessage);
             discordClient.channels.cache.get("1047634550303506472").send(fullMessage);
         }).catch((error) => {
             console.error(error);
         });
+
+        // Get viewer ID
+        const sqlSelect = "SELECT * FROM viewers WHERE ViewerName = ?";
+        const [rows, fields] = await mysqlConnection.promise().query(sqlSelect, [e.userDisplayName]);
+        var viewerNum;
+        if(rows.length != 0) {
+            viewerNum = rows[0].ViewerID;
+        } else {
+            const sqlInsert = "INSERT INTO viewers(ViewerName) VALUES(?)";
+            await mysqlConnection.promise().query(sqlInsert, [e.userDisplayName]);
+            const sqlSelect2 = "SELECT * FROM viewers WHERE ViewerName = ?";
+            const [rows2, fields2] = await mysqlConnection.promise().query(sqlSelect2, [e.userDisplayName]);
+            viewerNum = rows2[0].ViewerID;
+        };
+
+        // Check to see if viewer is in the chat list
+        const sqlSelect = "SELECT * FROM chatters WHERE Viewer = ?";
+        const [rows, fields] = await mysqlConnection.promise().query(sqlSelect, viewerNum);
+        if(rows.length == 0) { // If the viewer is in the list then nothing more needs to be done
+            // Check to see if viewer is in checkin list
+            const sqlSelect2 = 'SELECT * FROM checkins WHERE Viewer = ?';
+            const [rows2, fields2] = await mysqlConnection.promise().query(sqlSelect2, viewerNum);
+            if(rows.length != 0) {
+                // TODO: Has viewer been notified of checkin?
+            } else {
+                // TODO: Does viewer have saved checkins?
+            }
+        }
     }
 });
 
@@ -90,7 +118,7 @@ const checkinRedemption = listener.onChannelRedemptionAdd(config.twitch.channelI
             discordClient.channels.cache.get("1047634550303506472").send("Meow!  " + e.userDisplayName + " redeemed " + e.rewardTitle + "!");
             const sqlInsert = "INSERT INTO eventInstances(EventTypeID, Username) VALUES(?, ?)";
             await mysqlConnection.promise().query(sqlInsert, [rows[0].EventTypeID, e.userDisplayName]);
-        }
+        };
     } catch (err) {
         console.log(err);
     }
