@@ -18,6 +18,7 @@ class Program
     static async Task Main(string[] args)
     {
         await client.StartAsync();
+        await client.Rest.SendMessageAsync(ulong.Parse(config.Root?.Element("test-channel")?.Value), "Hello World");
         await Task.Delay(-1);
     }
 }
