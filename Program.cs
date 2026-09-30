@@ -1,9 +1,23 @@
 ﻿namespace CoraCatte;
 
+using System;
+using System.Xml.Linq;
+using NetCord;
+using NetCord.Gateway;
+using NetCord.Logging;
+
 class Program
 {
-    static void Main(string[] args)
+    static XDocument config = XDocument.Load("config.xml");
+
+    static GatewayClient client = new(new BotToken(config.Root?.Element("discord-token")?.Value), new GatewayClientConfiguration
     {
-        Console.WriteLine("Hello, World!");
+        Logger = new ConsoleLogger(),
+    });
+
+    static async Task Main(string[] args)
+    {
+        await client.StartAsync();
+        await Task.Delay(-1);
     }
 }
