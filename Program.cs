@@ -1,6 +1,7 @@
 ﻿namespace CoraCatte;
 
 using System;
+using System.Media;
 using System.Xml.Linq;
 using NetCord;
 using NetCord.Gateway;
@@ -24,6 +25,8 @@ class Program
     static ConnectionCredentials? twitchCredentials;
 
     static TwitchClient twitchClient = new TwitchClient(new TwitchWebSocketClient());
+
+    static SoundPlayer meow = new SoundPlayer(Properties.Resources.meow);
 
     static async Task Main(string[] args)
     {
