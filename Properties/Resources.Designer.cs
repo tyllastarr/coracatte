@@ -68,5 +68,14 @@ namespace CoraCatte.Properties {
                 return ResourceManager.GetStream("meow", resourceCulture);
             }
         }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.IO.UnmanagedMemoryStream similar to System.IO.MemoryStream.
+        /// </summary>
+        internal static System.IO.UnmanagedMemoryStream trill {
+            get {
+                return ResourceManager.GetStream("trill", resourceCulture);
+            }
+        }
     }
 }
