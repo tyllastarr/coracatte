@@ -27,6 +27,7 @@ class Program
     static TwitchClient twitchClient = new TwitchClient(new TwitchWebSocketClient());
 
     static SoundPlayer meow = new SoundPlayer(Properties.Resources.meow);
+    static SoundPlayer trill = new SoundPlayer(Properties.Resources.trill);
 
     static string timeString;
 
@@ -84,7 +85,13 @@ class Program
             Console.WriteLine($"{timeString} Meow!  {e.ChatMessage.Username} said \"{e.ChatMessage.Message}\"");
             try
             {
-                meow.Play();
+                if(e.ChatMessage.Username == "KatCatte")
+                {
+                    trill.Play();
+                } else
+                {
+                    meow.Play();
+                }
                 await discordClient.Rest.SendMessageAsync(ulong.Parse(testChannel), $"{timeString} Meow!  {e.ChatMessage.Username} said \"{e.ChatMessage.Message}\"");
             }
             catch (Exception ex)
