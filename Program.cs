@@ -28,6 +28,18 @@ class Program
 
     static SoundPlayer meow = new SoundPlayer(Properties.Resources.meow);
 
+    static string timeString;
+
+    static string FindTime()
+    {
+        var currentTime = DateTime.Now;
+        // Return the current hour in 24-hour format (00-23)
+        string currentHour = currentTime.ToString("HH");
+        string currentMinute = currentTime.ToString("mm");
+
+        return "[" + currentHour + ":" + currentMinute + "]";
+    }
+
     static async Task Main(string[] args)
     {
         await discordClient.StartAsync();
@@ -68,11 +80,12 @@ class Program
 
         twitchClient.OnMessageReceived += async (sender, e) =>
         {
-            Console.WriteLine($"Message from {e.ChatMessage.Username}: {e.ChatMessage.Message}");
+            timeString = FindTime();
+            Console.WriteLine($"{timeString} Meow!  {e.ChatMessage.Username} said \"{e.ChatMessage.Message}\"");
             try
             {
                 meow.Play();
-                await discordClient.Rest.SendMessageAsync(ulong.Parse(testChannel), $"{e.ChatMessage.Username}: {e.ChatMessage.Message}");
+                await discordClient.Rest.SendMessageAsync(ulong.Parse(testChannel), $"{timeString} Meow!  {e.ChatMessage.Username} said \"{e.ChatMessage.Message}\"");
             }
             catch (Exception ex)
             {
@@ -84,7 +97,7 @@ class Program
         twitchClient.Initialize(twitchCredentials, twitchChannel);
         twitchClient.Connect();
 
-        await discordClient.Rest.SendMessageAsync(ulong.Parse(testChannel), "Hello World");
+        await discordClient.Rest.SendMessageAsync(ulong.Parse(testChannel), FindTime() + " Hello World");
         await Task.Delay(-1);
     }
 }
