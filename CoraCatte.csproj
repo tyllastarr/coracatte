@@ -8,6 +8,16 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="config.xml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="config.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="NetCord" Version="1.0.0-beta.27" />
     <PackageReference Include="NetCord.Hosting" Version="1.0.0-beta.27" />
     <PackageReference Include="NetCord.Hosting.AspNetCore" Version="1.0.0-beta.27" />
