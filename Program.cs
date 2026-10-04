@@ -71,6 +71,7 @@ class Program
             Console.WriteLine($"Message from {e.ChatMessage.Username}: {e.ChatMessage.Message}");
             try
             {
+                meow.Play();
                 await discordClient.Rest.SendMessageAsync(ulong.Parse(testChannel), $"{e.ChatMessage.Username}: {e.ChatMessage.Message}");
             }
             catch (Exception ex)
