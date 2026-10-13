@@ -8,6 +8,8 @@ using NetCord.Gateway;
 using NetCord.Logging;
 using TwitchLib.Client;
 using TwitchLib.Client.Models;
+using MySqlConnector;
+using Dapper;
 using TwitchWebSocketClient = TwitchLib.Communication.Clients.WebSocketClient;
 
 
@@ -23,6 +25,10 @@ class Program
     static ConnectionCredentials? twitchCredentials;
 
     static TwitchClient twitchClient = new TwitchClient(new TwitchWebSocketClient());
+
+    static string sqlConnectionString = "Server=" + config.Root?.Element("sql-server")?.Value + ";Database=" + config.Root?.Element("sql-database")?.Value + ";User ID=" + config.Root?.Element("sql-username")?.Value + ";Password=" + config.Root?.Element("sql-password")?.Value + ";";
+
+    static MySqlConnection sqlConnection = new MySqlConnection(sqlConnectionString);
 
     static SoundPlayer meow = new SoundPlayer(Properties.Resources.meow);
     static SoundPlayer trill = new SoundPlayer(Properties.Resources.trill);
