@@ -7,9 +7,7 @@ using NetCord;
 using NetCord.Gateway;
 using NetCord.Logging;
 using TwitchLib.Client;
-using TwitchLib.Client.Events;
 using TwitchLib.Client.Models;
-using TwitchLib.Communication.Clients;
 using TwitchWebSocketClient = TwitchLib.Communication.Clients.WebSocketClient;
 
 
@@ -90,6 +88,7 @@ class Program
                     trill.Play();
                 } else
                 {
+                    // TODO: Check MySQL for checkins
                     meow.Play();
                 }
                 await discordClient.Rest.SendMessageAsync(ulong.Parse(testChannel), $"{timeString} Meow!  {e.ChatMessage.Username} said \"{e.ChatMessage.Message}\"");
