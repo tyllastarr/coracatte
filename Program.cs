@@ -45,6 +45,12 @@ class Program
         return "[" + currentHour + ":" + currentMinute + "]";
     }
 
+    static async Task<IEnumerable<Chatter>> FindChatterByUser(string userName)
+    {
+        const string query = "SELECT chatters.chatterId, chatters.userId FROM chatters INNER JOIN users ON chatters.userId = users.userId WHERE users.userName = @UserName;";
+        return await sqlConnection.QueryAsync<Chatter>(query, new { UserName = userName });
+    }
+
     static async Task Main(string[] args)
     {
         await discordClient.StartAsync();
@@ -94,7 +100,15 @@ class Program
                     trill.Play();
                 } else
                 {
-                    // TODO: Check MySQL for checkins
+                    var chatters = (await FindChatterByUser(e.ChatMessage.Username)).ToList();
+                    if(chatters.Any())
+                    {
+                        Console.WriteLine($"{e.ChatMessage.Username} already found in chatters table.");
+                    } else
+                    {
+                        Console.WriteLine($"{e.ChatMessage.Username} not found in chatters table.");
+                        // TODO: Write method to add to table
+                    }
                     meow.Play();
                 }
                 await discordClient.Rest.SendMessageAsync(ulong.Parse(testChannel), $"{timeString} Meow!  {e.ChatMessage.Username} said \"{e.ChatMessage.Message}\"");
