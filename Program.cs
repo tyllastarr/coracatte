@@ -45,6 +45,28 @@ class Program
         return "[" + currentHour + ":" + currentMinute + "]";
     }
 
+    static async Task CheckChatterList(string userName)
+    {
+        if (await IsInChatterList(userName))
+        {
+            Console.WriteLine($"{userName} already found in chatters table.");
+        }
+        else
+        {
+            Console.WriteLine($"{userName} not found in chatters table.");
+            int userId = await GetUserId(userName);
+            if(userId == -1) // -1 is an error value
+            {
+                Console.WriteLine($"{userName} not found in users table.");
+            } else
+            {
+                Console.WriteLine($"{userName} found in users table at ID {userId}.");
+                Console.WriteLine($"{await InsertChatter(userId)} items inserted into chatters table.");
+            }
+        }
+
+    }
+
     static async Task<bool> IsInChatterList(string userName)
     {
         List<Chatter> chatterList = (await FindChatterByUser(userName)).ToList();
@@ -52,10 +74,41 @@ class Program
         return chatterList.Any();
     }
 
+    static async Task<bool> IsInUserList(string userName)
+    {
+        List<User> userList = (await FindUser(userName)).ToList();
+
+        return userList.Any();
+    }
+
     private static async Task<IEnumerable<Chatter>> FindChatterByUser(string userName)
     {
         const string query = "SELECT chatters.chatterId, chatters.userId FROM chatters INNER JOIN users ON chatters.userId = users.userId WHERE users.userName = @UserName;";
         return await sqlConnection.QueryAsync<Chatter>(query, new { UserName = userName });
+    }
+
+    private static async Task<IEnumerable<User>> FindUser(string userName)
+    {
+        const string query = "SELECT userId, userName, discordName, checkedIn FROM users WHERE userName = @UserName;";
+        return await sqlConnection.QueryAsync<User>(query, new { UserName = userName });
+    }
+
+    private static async Task<int> GetUserId (string userName)
+    {
+        if(await IsInUserList(userName))
+        {
+            const string query = "SELECT userId FROM users WHERE userName = @UserName;";
+            return await sqlConnection.QueryFirstOrDefaultAsync<int>(query, new { UserName = userName });
+        } else
+        {
+            return -1; // Negative user IDs are not possible, so -1 is an error value
+        }
+    }
+
+    private static async Task<int> InsertChatter(int newUser)
+    {
+        const string query = "INSERT INTO chatters(userId) VALUES (@NewUser);";
+        return await sqlConnection.ExecuteAsync(query, new { NewUser = newUser });
     }
 
     static async Task Main(string[] args)
@@ -107,14 +160,7 @@ class Program
                     trill.Play();
                 } else
                 {
-                    if(await IsInChatterList(e.ChatMessage.Username))
-                    {
-                        Console.WriteLine($"{e.ChatMessage.Username} already found in chatters table.");
-                    } else
-                    {
-                        Console.WriteLine($"{e.ChatMessage.Username} not found in chatters table.");
-                        // TODO: Write method to add to table
-                    }
+                    await CheckChatterList(e.ChatMessage.Username);
                     meow.Play();
                 }
                 await discordClient.Rest.SendMessageAsync(ulong.Parse(testChannel), $"{timeString} Meow!  {e.ChatMessage.Username} said \"{e.ChatMessage.Message}\"");
