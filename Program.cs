@@ -45,7 +45,14 @@ class Program
         return "[" + currentHour + ":" + currentMinute + "]";
     }
 
-    static async Task<IEnumerable<Chatter>> FindChatterByUser(string userName)
+    static async Task<bool> IsInChatterList(string userName)
+    {
+        List<Chatter> chatterList = (await FindChatterByUser(userName)).ToList();
+
+        return chatterList.Any();
+    }
+
+    private static async Task<IEnumerable<Chatter>> FindChatterByUser(string userName)
     {
         const string query = "SELECT chatters.chatterId, chatters.userId FROM chatters INNER JOIN users ON chatters.userId = users.userId WHERE users.userName = @UserName;";
         return await sqlConnection.QueryAsync<Chatter>(query, new { UserName = userName });
@@ -100,8 +107,7 @@ class Program
                     trill.Play();
                 } else
                 {
-                    var chatters = (await FindChatterByUser(e.ChatMessage.Username)).ToList();
-                    if(chatters.Any())
+                    if(await IsInChatterList(e.ChatMessage.Username))
                     {
                         Console.WriteLine($"{e.ChatMessage.Username} already found in chatters table.");
                     } else
