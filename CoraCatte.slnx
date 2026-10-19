@@ -1,3 +1,6 @@
 <Solution>
+  <Folder Name="/Solution Items/">
+    <File Path="EventType.cs" />
+  </Folder>
   <Project Path="CoraCatte.csproj" />
 </Solution>
