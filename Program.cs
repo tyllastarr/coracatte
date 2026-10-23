@@ -62,7 +62,7 @@ class Program
             {
                 Console.WriteLine($"{userName} found in users table at ID {userId}.");
                 Console.WriteLine($"{await InsertChatter(userId)} items inserted into chatters table.");
-                Console.WriteLine(await MakeCheckinString(userName));
+                twitchClient.SendMessage(config.Root?.Element("twitch-channel")?.Value, await MakeCheckinString(userName));
             }
         }
 
