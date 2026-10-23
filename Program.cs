@@ -62,9 +62,41 @@ class Program
             {
                 Console.WriteLine($"{userName} found in users table at ID {userId}.");
                 Console.WriteLine($"{await InsertChatter(userId)} items inserted into chatters table.");
+                Console.WriteLine(await MakeCheckinString(userName));
             }
         }
 
+    }
+
+    static async Task<string> MakeCheckinString(string userName)
+    {
+        List<string> serverList = (await FindAllServersGivenUser(userName)).ToList();
+        string checkinString = "";
+
+        if(serverList.Any())
+        {
+            checkinString = $"Hello {userName}, and thanks for stopping by the Eclipse!  You're checked in to the following servers: ";
+
+            bool first = true;
+
+            foreach(string server in serverList)
+            {
+                if(first)
+                {
+                    checkinString += server;
+                    first = false;
+                } else
+                {
+                    checkinString += ", ";
+                    checkinString += server;
+                }
+            }
+        } else
+        {
+            checkinString = $"Hello {userName}, and thanks for stopping by the Eclipse!";
+        }
+
+        return checkinString;
     }
 
     static async Task<bool> IsInChatterList(string userName)
@@ -91,6 +123,12 @@ class Program
     {
         const string query = "SELECT userId, userName, discordName, checkedIn FROM users WHERE userName = @UserName;";
         return await sqlConnection.QueryAsync<User>(query, new { UserName = userName });
+    }
+
+    private static async Task<IEnumerable<string>> FindAllServersGivenUser(string userName)
+    {
+        const string query = "SELECT servers.serverName FROM users INNER JOIN user_servers ON users.userId = user_servers.userId INNER JOIN servers ON user_servers.serverId = servers.serverId WHERE users.userName = @UserName;";
+        return await sqlConnection.QueryAsync<string>(query, new { UserName = userName });
     }
 
     private static async Task<int> GetUserId (string userName)
