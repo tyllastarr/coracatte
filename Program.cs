@@ -1,17 +1,22 @@
 ﻿namespace CoraCatte;
 
-using System;
-using System.Media;
-using System.Xml.Linq;
+using Dapper;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using MySqlConnector;
 using NetCord;
 using NetCord.Gateway;
 using NetCord.Logging;
+using System;
+using System.Media;
+using System.Xml.Linq;
+using TwitchLib.Api;
+using TwitchLib.Api.Core;
 using TwitchLib.Client;
 using TwitchLib.Client.Models;
-using MySqlConnector;
-using Dapper;
+using TwitchLib.EventSub.Websockets;
+using TwitchLib.EventSub.Websockets.Extensions;
 using TwitchWebSocketClient = TwitchLib.Communication.Clients.WebSocketClient;
-
 
 class Program
 {
@@ -25,6 +30,22 @@ class Program
     static ConnectionCredentials? twitchCredentials;
 
     static TwitchClient twitchClient = new TwitchClient(new TwitchWebSocketClient());
+
+    static TwitchAPI twitchApi = new TwitchAPI(settings: new ApiSettings
+    {
+        ClientId = config.Root?.Element("twitch-client-id")?.Value,
+        AccessToken = config.Root?.Element("twitch-client-access-token")?.Value
+    });
+
+    static IServiceCollection eventSubServiceCollection = new ServiceCollection().AddLogging((ILoggingBuilder builder) => {
+        builder.SetMinimumLevel(Microsoft.Extensions.Logging.LogLevel.Debug);
+        builder.AddConsole();
+        builder.AddDebug();
+    }).AddTwitchLibEventSubWebsockets();
+
+    static ServiceProvider eventSubServiceProvider = eventSubServiceCollection.BuildServiceProvider();
+
+    static EventSubWebsocketClient eventSub = eventSubServiceProvider.GetRequiredService<EventSubWebsocketClient>();
 
     static string sqlConnectionString = "Server=" + config.Root?.Element("sql-server")?.Value + ";Database=" + config.Root?.Element("sql-database")?.Value + ";User ID=" + config.Root?.Element("sql-username")?.Value + ";Password=" + config.Root?.Element("sql-password")?.Value + ";";
 
@@ -182,10 +203,44 @@ class Program
 
         // attach diagnostic handlers before connecting
         twitchClient.OnLog += (sender, e) => Console.WriteLine($"TwitchLog: {e.Data}");
-        twitchClient.OnConnectionError += (sender, e) => Console.WriteLine($"Twitch connection error: {e.Error?.Message}");
-        twitchClient.OnDisconnected += (sender, e) => Console.WriteLine("Twitch disconnected");
-        twitchClient.OnJoinedChannel += (sender, e) => Console.WriteLine($"Joined channel: {e.Channel}");
-        twitchClient.OnConnected += (sender, e) => Console.WriteLine("Connected to Twitch");
+        twitchClient.OnConnectionError += (sender, e) => Console.WriteLine($"Twitch IRC connection error: {e.Error?.Message}");
+        twitchClient.OnDisconnected += (sender, e) => Console.WriteLine("Twitch IRC disconnected");
+        twitchClient.OnJoinedChannel += (sender, e) => Console.WriteLine($"Joined IRC channel: {e.Channel}");
+        twitchClient.OnConnected += (sender, e) => Console.WriteLine("Connected to Twitch IRC");
+        eventSub.WebsocketConnected += async (sender, e) =>
+        {
+            Console.WriteLine("Debug line");
+            if (e.IsRequestedReconnect) return;
+
+            try
+            {
+                TwitchLib.Api.Auth.ValidateAccessTokenResponse? validation = await twitchApi.Auth.ValidateAccessTokenAsync();
+                if (validation == null)
+                {
+                    Console.WriteLine("Token is invalid or expired.");
+                }
+                else
+                {
+                    Console.WriteLine($"Token client ID: {validation.ClientId}");
+                    Console.WriteLine($"Token user: {validation.Login} ({validation.UserId})");
+                    Console.WriteLine($"Token scopes: {string.Join(", ", validation.Scopes)}");
+                    Console.WriteLine($"Expires in: {validation.ExpiresIn}s");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Token validation failed: {ex.Message}");
+            }
+
+            await twitchApi.Helix.EventSub.CreateEventSubSubscriptionAsync(
+                "channel.channel_points_custom_reward_redemption.add",
+                "1",
+                new Dictionary<string, string> { { "broadcaster_user_id", config.Root?.Element("twitch-channel-id")?.Value } },
+                TwitchLib.Api.Core.Enums.EventSubTransportMethod.Websocket,
+                eventSub.SessionId);
+
+            Console.WriteLine("Connected to Twitch API");
+        };
 
         twitchClient.OnMessageReceived += async (sender, e) =>
         {
@@ -214,6 +269,27 @@ class Program
         // Initialize with the channel you want the bot to join (twitchChannel).
         twitchClient.Initialize(twitchCredentials, twitchChannel);
         twitchClient.Connect();
+
+
+        try
+        {
+            using System.Net.WebSockets.ClientWebSocket testSocket = new System.Net.WebSockets.ClientWebSocket();
+            await testSocket.ConnectAsync(new Uri("wss://eventsub.wss.twitch.tv/ws"), CancellationToken.None);
+            Console.WriteLine($"Raw websocket test: {testSocket.State}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Raw websocket test failed: {ex}");
+        }
+
+        eventSub.ErrorOccurred += async (object? sender, TwitchLib.EventSub.Websockets.Core.EventArgs.ErrorOccuredArgs e) =>
+        {
+            Console.WriteLine($"EventSub error: {e.Exception}");
+            await Task.CompletedTask;
+        };
+
+        bool connected = await eventSub.ConnectAsync(new Uri("wss://eventsub.wss.twitch.tv/ws"));
+        Console.WriteLine("Connected: " + connected);
 
         await discordClient.Rest.SendMessageAsync(ulong.Parse(testChannel), FindTime() + " Hello World");
         await Task.Delay(-1);
