@@ -2,7 +2,6 @@
 
 using Dapper;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using MySqlConnector;
 using NetCord;
 using NetCord.Gateway;
@@ -37,15 +36,14 @@ class Program
         AccessToken = config.Root?.Element("twitch-client-access-token")?.Value
     });
 
-    static IServiceCollection eventSubServiceCollection = new ServiceCollection().AddLogging((ILoggingBuilder builder) => {
-        builder.SetMinimumLevel(Microsoft.Extensions.Logging.LogLevel.Debug);
-        builder.AddConsole();
-        builder.AddDebug();
-    }).AddTwitchLibEventSubWebsockets();
+    static IServiceCollection eventSubServiceCollection = new ServiceCollection().AddLogging().AddTwitchLibEventSubWebsockets();
 
     static ServiceProvider eventSubServiceProvider = eventSubServiceCollection.BuildServiceProvider();
 
     static EventSubWebsocketClient eventSub = eventSubServiceProvider.GetRequiredService<EventSubWebsocketClient>();
+
+    static readonly Uri eventSubUrl = new Uri("wss://eventsub.wss.twitch.tv/ws");
+    static readonly SemaphoreSlim reconnectLock = new SemaphoreSlim(1, 1);
 
     static string sqlConnectionString = "Server=" + config.Root?.Element("sql-server")?.Value + ";Database=" + config.Root?.Element("sql-database")?.Value + ";User ID=" + config.Root?.Element("sql-username")?.Value + ";Password=" + config.Root?.Element("sql-password")?.Value + ";";
 
@@ -170,6 +168,34 @@ class Program
         return await sqlConnection.ExecuteAsync(query, new { NewUser = newUser });
     }
 
+    static async Task EnsureValidTokenAsync()
+    {
+        string? clientId = config.Root?.Element("twitch-client-id")?.Value;
+        string? clientSecret = config.Root?.Element("twitch-client-secret")?.Value;
+        string? refreshToken = config.Root?.Element("twitch-client-refresh-token")?.Value;
+
+        TwitchLib.Api.Auth.ValidateAccessTokenResponse? validation = await twitchApi.Auth.ValidateAccessTokenAsync();
+
+        // Valid and not about to expire (more than 10 minutes left): nothing to do
+        if (validation != null && validation.ExpiresIn > 600)
+        {
+            Console.WriteLine($"Twitch token OK for {validation.Login}, expires in {validation.ExpiresIn}s.");
+            return;
+        }
+
+        Console.WriteLine("Twitch token is invalid or expiring soon; refreshing...");
+
+        TwitchLib.Api.Auth.RefreshResponse refreshed = await twitchApi.Auth.RefreshAuthTokenAsync(refreshToken, clientSecret, clientId);
+
+        twitchApi.Settings.AccessToken = refreshed.AccessToken;
+
+        config.Root!.Element("twitch-client-access-token")!.Value = refreshed.AccessToken;
+        config.Root!.Element("twitch-client-refresh-token")!.Value = refreshed.RefreshToken;
+        config.Save("config.xml");
+
+        Console.WriteLine("Twitch token refreshed and saved.");
+    }
+
     static async Task Main(string[] args)
     {
         await discordClient.StartAsync();
@@ -209,37 +235,63 @@ class Program
         twitchClient.OnConnected += (sender, e) => Console.WriteLine("Connected to Twitch IRC");
         eventSub.WebsocketConnected += async (sender, e) =>
         {
-            Console.WriteLine("Debug line");
             if (e.IsRequestedReconnect) return;
 
             try
             {
-                TwitchLib.Api.Auth.ValidateAccessTokenResponse? validation = await twitchApi.Auth.ValidateAccessTokenAsync();
-                if (validation == null)
-                {
-                    Console.WriteLine("Token is invalid or expired.");
-                }
-                else
-                {
-                    Console.WriteLine($"Token client ID: {validation.ClientId}");
-                    Console.WriteLine($"Token user: {validation.Login} ({validation.UserId})");
-                    Console.WriteLine($"Token scopes: {string.Join(", ", validation.Scopes)}");
-                    Console.WriteLine($"Expires in: {validation.ExpiresIn}s");
-                }
+                await twitchApi.Helix.EventSub.CreateEventSubSubscriptionAsync(
+                    "channel.channel_points_custom_reward_redemption.add",
+                    "1",
+                    new Dictionary<string, string> { { "broadcaster_user_id", config.Root?.Element("twitch-channel-id")?.Value } },
+                    TwitchLib.Api.Core.Enums.EventSubTransportMethod.Websocket,
+                    eventSub.SessionId);
+
+                Console.WriteLine("Subscribed to channel point redemptions");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Token validation failed: {ex.Message}");
+                Console.WriteLine($"EventSub subscription failed: {ex.Message}");
             }
 
-            await twitchApi.Helix.EventSub.CreateEventSubSubscriptionAsync(
-                "channel.channel_points_custom_reward_redemption.add",
-                "1",
-                new Dictionary<string, string> { { "broadcaster_user_id", config.Root?.Element("twitch-channel-id")?.Value } },
-                TwitchLib.Api.Core.Enums.EventSubTransportMethod.Websocket,
-                eventSub.SessionId);
-
             Console.WriteLine("Connected to Twitch API");
+        };
+        eventSub.WebsocketDisconnected += async (object? sender, EventArgs e) =>
+        {
+            // Skip if a reconnect is already running
+            if (!await reconnectLock.WaitAsync(0))
+                return;
+
+            try
+            {
+                Console.WriteLine("EventSub disconnected; reconnecting...");
+
+                int delaySeconds = 1;
+                while (true)
+                {
+                    try
+                    {
+                        await EnsureValidTokenAsync();
+
+                        if (await eventSub.ConnectAsync(eventSubUrl))
+                        {
+                            Console.WriteLine("EventSub reconnected.");
+                            break;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"EventSub reconnect attempt failed: {ex.Message}");
+                    }
+
+                    Console.WriteLine($"Retrying EventSub connection in {delaySeconds}s...");
+                    await Task.Delay(TimeSpan.FromSeconds(delaySeconds));
+                    delaySeconds = Math.Min(delaySeconds * 2, 30);
+                }
+            }
+            finally
+            {
+                reconnectLock.Release();
+            }
         };
 
         twitchClient.OnMessageReceived += async (sender, e) =>
@@ -271,25 +323,15 @@ class Program
         twitchClient.Connect();
 
 
-        try
-        {
-            using System.Net.WebSockets.ClientWebSocket testSocket = new System.Net.WebSockets.ClientWebSocket();
-            await testSocket.ConnectAsync(new Uri("wss://eventsub.wss.twitch.tv/ws"), CancellationToken.None);
-            Console.WriteLine($"Raw websocket test: {testSocket.State}");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Raw websocket test failed: {ex}");
-        }
-
         eventSub.ErrorOccurred += async (object? sender, TwitchLib.EventSub.Websockets.Core.EventArgs.ErrorOccuredArgs e) =>
         {
             Console.WriteLine($"EventSub error: {e.Exception}");
             await Task.CompletedTask;
         };
 
-        bool connected = await eventSub.ConnectAsync(new Uri("wss://eventsub.wss.twitch.tv/ws"));
-        Console.WriteLine("Connected: " + connected);
+        await EnsureValidTokenAsync();
+
+        await eventSub.ConnectAsync(eventSubUrl);
 
         await discordClient.Rest.SendMessageAsync(ulong.Parse(testChannel), FindTime() + " Hello World");
         await Task.Delay(-1);
