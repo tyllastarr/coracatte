@@ -193,13 +193,15 @@ class Program
             Console.WriteLine($"{timeString} Meow!  {e.ChatMessage.Username} said \"{e.ChatMessage.Message}\"");
             try
             {
-                if(e.ChatMessage.Username == "KatCatte")
+                switch(e.ChatMessage.Username)
                 {
-                    trill.Play();
-                } else
-                {
-                    await CheckChatterList(e.ChatMessage.Username);
-                    meow.Play();
+                    case "KatCatte":
+                        trill.Play();
+                        break;
+                    default:
+                        await CheckChatterList(e.ChatMessage.Username);
+                        meow.Play();
+                        break;
                 }
                 await discordClient.Rest.SendMessageAsync(ulong.Parse(testChannel), $"{timeString} Meow!  {e.ChatMessage.Username} said \"{e.ChatMessage.Message}\"");
             }
