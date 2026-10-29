@@ -14,6 +14,7 @@ using TwitchLib.Api.Core;
 using TwitchLib.Client;
 using TwitchLib.Client.Models;
 using TwitchLib.EventSub.Websockets;
+using TwitchLib.EventSub.Websockets.Core.EventArgs.Channel;
 using TwitchLib.EventSub.Websockets.Extensions;
 using TwitchWebSocketClient = TwitchLib.Communication.Clients.WebSocketClient;
 
@@ -318,6 +319,12 @@ class Program
             }
         };
 
+        eventSub.ChannelPointsCustomRewardRedemptionAdd += async (object? sender, ChannelPointsCustomRewardRedemptionArgs e) =>
+        {
+            Console.WriteLine($"Redeemed: \"{e.Notification.Payload.Event.Reward.Title}\" ({e.Notification.Payload.Event.Reward.Id})");
+            await Task.CompletedTask;
+        };
+
         // Initialize with the channel you want the bot to join (twitchChannel).
         twitchClient.Initialize(twitchCredentials, twitchChannel);
         twitchClient.Connect();
@@ -330,6 +337,22 @@ class Program
         };
 
         await EnsureValidTokenAsync();
+
+        // Debug lines to find the channel point IDs
+        try
+        {
+            TwitchLib.Api.Helix.Models.ChannelPoints.GetCustomReward.GetCustomRewardsResponse rewards =
+                await twitchApi.Helix.ChannelPoints.GetCustomRewardAsync(config.Root?.Element("twitch-channel-id")?.Value);
+
+            foreach (TwitchLib.Api.Helix.Models.ChannelPoints.CustomReward reward in rewards.Data)
+            {
+                Console.WriteLine($"{reward.Id}  |  {reward.Title}  |  {reward.Cost} points  |  enabled: {reward.IsEnabled}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to list rewards: {ex.Message}");
+        }
 
         await eventSub.ConnectAsync(eventSubUrl);
 
