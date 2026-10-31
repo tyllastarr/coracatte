@@ -133,6 +133,13 @@ class Program
         return userList.Any();
     }
 
+    static async Task<bool> IsInServerList(string twitchId)
+    {
+        List<Server> serverList = (await FindServerByTwitchId(twitchId)).ToList();
+
+        return serverList.Any();
+    }
+
     private static async Task<IEnumerable<Chatter>> FindChatterByUser(string userName)
     {
         const string query = "SELECT chatters.chatterId, chatters.userId FROM chatters INNER JOIN users ON chatters.userId = users.userId WHERE users.userName = @UserName;";
@@ -149,6 +156,12 @@ class Program
     {
         const string query = "SELECT servers.serverName FROM users INNER JOIN user_servers ON users.userId = user_servers.userId INNER JOIN servers ON user_servers.serverId = servers.serverId WHERE users.userName = @UserName;";
         return await sqlConnection.QueryAsync<string>(query, new { UserName = userName });
+    }
+
+    private static async Task<IEnumerable<Server>> FindServerByTwitchId(string twitchId)
+    {
+        const string query = "SELECT serverId, serverName, twitchId FROM servers WHERE twitchId = @TwitchId;";
+        return await sqlConnection.QueryAsync<Server>(query, new { TwitchId = twitchId });
     }
 
     private static async Task<int> GetUserId (string userName)
@@ -322,6 +335,12 @@ class Program
         eventSub.ChannelPointsCustomRewardRedemptionAdd += async (object? sender, ChannelPointsCustomRewardRedemptionArgs e) =>
         {
             Console.WriteLine($"Redeemed: \"{e.Notification.Payload.Event.Reward.Title}\" ({e.Notification.Payload.Event.Reward.Id})");
+            if(await IsInServerList(e.Notification.Payload.Event.Reward.Id))
+            {
+                const string query = "SELECT serverId, serverName, twitchId FROM servers WHERE twitchId = @TwitchId;";
+                Server currentServer = await sqlConnection.QueryFirstOrDefaultAsync<Server>(query, new { TwitchId = e.Notification.Payload.Event.Reward.Id });
+                Console.WriteLine("Debug line: Server " + currentServer.ServerName + " checked in.  ID is " + currentServer.ServerId);
+            }
             await Task.CompletedTask;
         };
 

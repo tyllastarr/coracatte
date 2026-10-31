@@ -437,3 +437,4 @@ config.xml
 # Internal use
 *.ps1
 *.csv
+*.sql
