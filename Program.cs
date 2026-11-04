@@ -339,7 +339,7 @@ class Program
             {
                 const string query = "SELECT serverId, serverName, twitchId FROM servers WHERE twitchId = @TwitchId;";
                 Server currentServer = await sqlConnection.QueryFirstOrDefaultAsync<Server>(query, new { TwitchId = e.Notification.Payload.Event.Reward.Id });
-                Console.WriteLine("Debug line: Server " + currentServer.ServerName + " checked in.  ID is " + currentServer.ServerId);
+                Console.WriteLine("Debug line: Server " + currentServer.ServerName + " checked in.  ID is " + currentServer.ServerId + ".  Username is " + e.Notification.Payload.Event.UserName + ".");
             }
             await Task.CompletedTask;
         };
