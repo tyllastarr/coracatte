@@ -140,6 +140,14 @@ class Program
         return serverList.Any();
     }
 
+    static async Task<bool> IsUserInGivenServer(int userId, int serverId)
+    {
+        const string query = "SELECT * FROM user_servers WHERE userId = @UserId AND serverId = @ServerId;";
+        List<UserServer> listing = (await sqlConnection.QueryAsync<UserServer>(query, new { UserId = userId, ServerId = serverId })).ToList();
+
+        return listing.Any();
+    }
+
     private static async Task<IEnumerable<Chatter>> FindChatterByUser(string userName)
     {
         const string query = "SELECT chatters.chatterId, chatters.userId FROM chatters INNER JOIN users ON chatters.userId = users.userId WHERE users.userName = @UserName;";
@@ -148,7 +156,7 @@ class Program
 
     private static async Task<IEnumerable<User>> FindUser(string userName)
     {
-        const string query = "SELECT userId, userName, discordName, checkedIn FROM users WHERE userName = @UserName;";
+        const string query = "SELECT userId, userName, discordName FROM users WHERE userName = @UserName;";
         return await sqlConnection.QueryAsync<User>(query, new { UserName = userName });
     }
 
@@ -180,6 +188,57 @@ class Program
     {
         const string query = "INSERT INTO chatters(userId) VALUES (@NewUser);";
         return await sqlConnection.ExecuteAsync(query, new { NewUser = newUser });
+    }
+
+    private static async Task<int> InsertUser(string newUserName)
+    {
+        const string userInsertQuery = "INSERT INTO users(userName) VALUES (@NewUser);";
+        return await sqlConnection.ExecuteAsync(userInsertQuery, new { NewUser = newUserName });
+    }
+
+    private static async Task<int> InsertUser(string newUserName, string newDiscordName)
+    {
+        const string userInsertQuery = "INSERT INTO users(userName, discordName) VALUES (@NewUser, @Discord);";
+        return await sqlConnection.ExecuteAsync(userInsertQuery, new { NewUser = newUserName, Discord = newDiscordName });
+    }
+
+    private static async Task<int> InsertUserCheckin(int userId, int serverId)
+    {
+        const string checkinInsertQuery = "INSERT INTO user_servers(userId, serverId) VALUES (@NewUser, @NewServer);";
+        return await sqlConnection.ExecuteAsync(checkinInsertQuery, new { NewUser = userId, NewServer = serverId });
+    }
+
+    private static async Task UserCheckin(string user, string title, string twitchId)
+    {
+        // TODO: Add chatter check so that if user is already checked in, the method won't run again
+
+        if (await IsInServerList(twitchId))
+        {
+            const string serverQuery = "SELECT serverId, serverName, twitchId FROM servers WHERE twitchId = @TwitchId;";
+            Server currentServer = await sqlConnection.QueryFirstOrDefaultAsync<Server>(serverQuery, new { TwitchId = twitchId });
+
+
+            if (await IsInUserList(user) == false)
+            {
+                await InsertUser(user);
+            }
+
+            int userId = await GetUserId(user);
+
+            if(await IsUserInGivenServer(userId, currentServer.ServerId))
+            {
+                string newMessage = user + ", you're already checked into " + currentServer.ServerName + "!  Now that we have automatic checkins there is no need to redeem the channel point every stream!";
+                twitchClient.SendMessage(config.Root?.Element("twitch-channel")?.Value, newMessage);
+            } else
+            {
+                string newMessage = "Thank you " + user + " for checking in to " + currentServer.ServerName + "!";
+                await InsertUserCheckin(userId, currentServer.ServerId);
+                twitchClient.SendMessage(config.Root?.Element("twitch-channel")?.Value, newMessage);
+            }
+
+            Console.WriteLine("Debug line: Server " + currentServer.ServerName + " checked in.  ID is " + currentServer.ServerId + ".  Username is " + user + ".");
+        }
+
     }
 
     static async Task EnsureValidTokenAsync()
@@ -335,12 +394,9 @@ class Program
         eventSub.ChannelPointsCustomRewardRedemptionAdd += async (object? sender, ChannelPointsCustomRewardRedemptionArgs e) =>
         {
             Console.WriteLine($"Redeemed: \"{e.Notification.Payload.Event.Reward.Title}\" ({e.Notification.Payload.Event.Reward.Id})");
-            if(await IsInServerList(e.Notification.Payload.Event.Reward.Id))
-            {
-                const string query = "SELECT serverId, serverName, twitchId FROM servers WHERE twitchId = @TwitchId;";
-                Server currentServer = await sqlConnection.QueryFirstOrDefaultAsync<Server>(query, new { TwitchId = e.Notification.Payload.Event.Reward.Id });
-                Console.WriteLine("Debug line: Server " + currentServer.ServerName + " checked in.  ID is " + currentServer.ServerId + ".  Username is " + e.Notification.Payload.Event.UserName + ".");
-            }
+
+            await UserCheckin(e.Notification.Payload.Event.UserName, e.Notification.Payload.Event.Reward.Title, e.Notification.Payload.Event.Reward.Id);
+
             await Task.CompletedTask;
         };
 
