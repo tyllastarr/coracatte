@@ -5,7 +5,6 @@
         private int userId;
         private string userName;
         private string discordName;
-        private bool checkedIn;
 
         public int UserId
         {
@@ -22,36 +21,20 @@
             get { return discordName; }
             set { discordName = value; }
         }
-        public bool CheckedIn
-        {
-            get { return checkedIn; }
-            set { checkedIn = value; }
-        }
 
-        public User(int newId, string newName, string newDiscord, bool newCheckin)
+        public User(int newId, string newName, string newDiscord)
         {
             userId = newId;
             userName = newName;
             discordName = newDiscord;
-            checkedIn = newCheckin;
         }
 
-        public User(int newId, string newName, string newDiscord) : this(newId, newName, newDiscord, false)
+        public User(int newId, string newName) : this(newId, newName, "")
         {
 
         }
 
-        public User(int newId, string newName, bool newCheckin) : this(newId, newName, "", newCheckin)
-        {
-
-        }
-
-        public User(int newId, string newName) : this(newId, newName, "", false)
-        {
-
-        }
-
-        public User() : this(0, "", "", false)
+        public User() : this(0, "", "")
         {
 
         }
