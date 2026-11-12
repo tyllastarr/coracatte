@@ -210,8 +210,6 @@ class Program
 
     private static async Task UserCheckin(string user, string title, string twitchId)
     {
-        // TODO: Add chatter check so that if user is already checked in, the method won't run again
-
         if (await IsInServerList(twitchId))
         {
             const string serverQuery = "SELECT serverId, serverName, twitchId FROM servers WHERE twitchId = @TwitchId;";
