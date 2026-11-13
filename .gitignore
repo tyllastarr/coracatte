@@ -438,3 +438,4 @@ config.xml
 *.ps1
 *.csv
 *.sql
+*.vb
