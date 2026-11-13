@@ -148,6 +148,15 @@ class Program
         return listing.Any();
     }
 
+    static async Task<bool> IsUserBanned(string user)
+    {
+        int userId = await GetUserId(user);
+        const string query = "SELECT bannedUserId FROM banned_users WHERE bannedUserId = @BannedUser;";
+        List<int> listing = (await sqlConnection.QueryAsync<int>(query, new { BannedUser = userId })).ToList();
+
+        return listing.Any();
+    }
+
     private static async Task<IEnumerable<Chatter>> FindChatterByUser(string userName)
     {
         const string query = "SELECT chatters.chatterId, chatters.userId FROM chatters INNER JOIN users ON chatters.userId = users.userId WHERE users.userName = @UserName;";
@@ -377,8 +386,11 @@ class Program
                         trill.Play();
                         break;
                     default:
-                        await CheckChatterList(e.ChatMessage.Username);
-                        meow.Play();
+                        if (await IsUserBanned(e.ChatMessage.Username) == false)
+                        {
+                            await CheckChatterList(e.ChatMessage.Username);
+                            meow.Play();
+                        } 
                         break;
                 }
                 await discordClient.Rest.SendMessageAsync(ulong.Parse(testChannel), $"{timeString} Meow!  {e.ChatMessage.Username} said \"{e.ChatMessage.Message}\"");
