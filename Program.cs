@@ -121,7 +121,7 @@ class Program
 
     static async Task<bool> IsInChatterList(string userName)
     {
-        List<Chatter> chatterList = (await FindChatterByUser(userName)).ToList();
+        List<int> chatterList = (await FindChatterByUser(userName)).ToList();
 
         return chatterList.Any();
     }
@@ -157,10 +157,10 @@ class Program
         return listing.Any();
     }
 
-    private static async Task<IEnumerable<Chatter>> FindChatterByUser(string userName)
+    private static async Task<IEnumerable<int>> FindChatterByUser(string userName)
     {
-        const string query = "SELECT chatters.chatterId, chatters.userId FROM chatters INNER JOIN users ON chatters.userId = users.userId WHERE users.userName = @UserName;";
-        return await sqlConnection.QueryAsync<Chatter>(query, new { UserName = userName });
+        const string query = "SELECT chatters.chatterId FROM chatters INNER JOIN users ON chatters.chatterId = users.userId WHERE users.userName = @UserName;";
+        return await sqlConnection.QueryAsync<int>(query, new { UserName = userName });
     }
 
     private static async Task<IEnumerable<User>> FindUser(string userName)
