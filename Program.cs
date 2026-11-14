@@ -157,6 +157,12 @@ class Program
         return listing.Any();
     }
 
+    static async Task<bool> IsInEventList(string user, string eventType)
+    {
+        int userId = await GetUserId(user);
+        // TODO: Get event ID and then check for event list
+    }
+
     private static async Task<IEnumerable<int>> FindChatterByUser(string userName)
     {
         const string query = "SELECT chatters.chatterId FROM chatters INNER JOIN users ON chatters.chatterId = users.userId WHERE users.userName = @UserName;";
@@ -191,6 +197,11 @@ class Program
         {
             return -1; // Negative user IDs are not possible, so -1 is an error value
         }
+    }
+
+    private static async Task<int> GetEventTypeId (string eventType)
+    {
+        // TODO: Write get event name
     }
 
     private static async Task<int> InsertChatter(int newUser)
@@ -246,6 +257,11 @@ class Program
             Console.WriteLine("Debug line: Server " + currentServer.ServerName + " checked in.  ID is " + currentServer.ServerId + ".  Username is " + user + ".");
         }
 
+    }
+
+    static async Task<bool> Follow(string userName)
+    {
+        // TODO: Check for in event list; if not in list, add
     }
 
     static async Task EnsureValidTokenAsync()
@@ -408,6 +424,12 @@ class Program
             await UserCheckin(e.Notification.Payload.Event.UserName, e.Notification.Payload.Event.Reward.Title, e.Notification.Payload.Event.Reward.Id);
 
             await Task.CompletedTask;
+        };
+
+        eventSub.ChannelFollow += async (object? sender, ChannelFollowArgs e) =>
+        {
+            bool inEventList = await Follow(e.Notification.Payload.Event.UserName);
+            // TODO: Check for presence in event list
         };
 
         // Initialize with the channel you want the bot to join (twitchChannel).
