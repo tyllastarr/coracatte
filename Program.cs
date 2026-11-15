@@ -379,7 +379,6 @@ class Program
         return inEventList;
     }
 
-
     static async Task<bool> Bitties(string user, int numCheered)
     {
         Console.WriteLine("Debug line: " + user + " cheered " + numCheered + " bitties");
@@ -398,6 +397,26 @@ class Program
 
         return inEventList;
     }
+
+    static async Task<bool> Raid(string user, int numRaiders)
+    {
+        Console.WriteLine("Debug line: " + user + " raided with " + numRaiders + " viewers");
+
+        bool inUserList = await IsInUserList(user);
+        if (!inUserList)
+        {
+            await InsertUser(user);
+        }
+
+        bool inEventList = await IsInEventList(user, "Raid");
+        if (!inEventList)
+        {
+            await InsertEvent(user, "Raid");
+        }
+
+        return inEventList;
+    }
+
     static async Task EnsureValidTokenAsync()
     {
         string? clientId = config.Root?.Element("twitch-client-id")?.Value;
@@ -587,6 +606,11 @@ class Program
         eventSub.ChannelCheer += async (object? sender, ChannelCheerArgs e) =>
         {
             await Bitties(e.Notification.Payload.Event.UserName, e.Notification.Payload.Event.Bits);
+        };
+
+        eventSub.ChannelRaid += async (object? sender, ChannelRaidArgs e) =>
+        {
+            await Raid(e.Notification.Payload.Event.FromBroadcasterUserName, e.Notification.Payload.Event.Viewers);
         };
 
         // Initialize with the channel you want the bot to join (twitchChannel).
