@@ -1,24 +1,713 @@
 ﻿namespace CoraCatte;
 
-using System;
-using System.Xml.Linq;
+using Dapper;
+using Microsoft.Extensions.DependencyInjection;
+using MySqlConnector;
 using NetCord;
 using NetCord.Gateway;
 using NetCord.Logging;
+using System;
+using System.Media;
+using System.Xml.Linq;
+using TwitchLib.Api;
+using TwitchLib.Api.Core;
+using TwitchLib.Client;
+using TwitchLib.Client.Models;
+using TwitchLib.EventSub.Websockets;
+using TwitchLib.EventSub.Websockets.Core.EventArgs.Channel;
+using TwitchLib.EventSub.Websockets.Extensions;
+using TwitchWebSocketClient = TwitchLib.Communication.Clients.WebSocketClient;
 
 class Program
 {
     static XDocument config = XDocument.Load("config.xml");
 
-    static GatewayClient client = new(new BotToken(config.Root?.Element("discord-token")?.Value), new GatewayClientConfiguration
+    static GatewayClient discordClient = new(new BotToken(config.Root?.Element("discord-token")?.Value), new GatewayClientConfiguration
     {
         Logger = new ConsoleLogger(),
     });
 
+    static ConnectionCredentials? twitchCredentials;
+
+    static TwitchClient twitchClient = new TwitchClient(new TwitchWebSocketClient());
+
+    static TwitchAPI twitchApi = new TwitchAPI(settings: new ApiSettings
+    {
+        ClientId = config.Root?.Element("twitch-client-id")?.Value,
+        AccessToken = config.Root?.Element("twitch-client-access-token")?.Value
+    });
+
+    static IServiceCollection eventSubServiceCollection = new ServiceCollection().AddLogging().AddTwitchLibEventSubWebsockets();
+
+    static ServiceProvider eventSubServiceProvider = eventSubServiceCollection.BuildServiceProvider();
+
+    static EventSubWebsocketClient eventSub = eventSubServiceProvider.GetRequiredService<EventSubWebsocketClient>();
+
+//    static readonly Uri eventSubUrl = new Uri("wss://eventsub.wss.twitch.tv/ws"); // This is for release
+    static readonly Uri eventSubUrl = new Uri("ws://127.0.0.1:8080/ws"); // This is for debug
+
+    static readonly SemaphoreSlim reconnectLock = new SemaphoreSlim(1, 1);
+
+    static string sqlConnectionString = "Server=" + config.Root?.Element("sql-server")?.Value + ";Database=" + config.Root?.Element("sql-database")?.Value + ";User ID=" + config.Root?.Element("sql-username")?.Value + ";Password=" + config.Root?.Element("sql-password")?.Value + ";";
+
+    static MySqlConnection sqlConnection = new MySqlConnection(sqlConnectionString);
+
+    static SoundPlayer meow = new SoundPlayer(Properties.Resources.meow);
+    static SoundPlayer trill = new SoundPlayer(Properties.Resources.trill);
+
+    static string timeString;
+
+    static string FindTime()
+    {
+        var currentTime = DateTime.Now;
+        // Return the current hour in 24-hour format (00-23)
+        string currentHour = currentTime.ToString("HH");
+        string currentMinute = currentTime.ToString("mm");
+
+        return "[" + currentHour + ":" + currentMinute + "]";
+    }
+
+    static async Task CheckChatterList(string userName)
+    {
+        if (await IsInChatterList(userName))
+        {
+            Console.WriteLine($"{userName} already found in chatters table.");
+        }
+        else
+        {
+            Console.WriteLine($"{userName} not found in chatters table.");
+            int userId = await GetUserId(userName);
+            if(userId == -1) // -1 is an error value
+            {
+                Console.WriteLine($"{userName} not found in users table.");
+            } else
+            {
+                Console.WriteLine($"{userName} found in users table at ID {userId}.");
+                Console.WriteLine($"{await InsertChatter(userId)} items inserted into chatters table.");
+                twitchClient.SendMessage(config.Root?.Element("twitch-channel")?.Value, await MakeCheckinString(userName));
+            }
+        }
+
+    }
+
+    static async Task<string> MakeCheckinString(string userName)
+    {
+        List<string> serverList = (await FindAllServersGivenUser(userName)).ToList();
+        string checkinString = "";
+
+        if(serverList.Any())
+        {
+            checkinString = $"Hello {userName}, and thanks for stopping by the Eclipse!  You're checked in to the following servers: ";
+
+            bool first = true;
+
+            foreach(string server in serverList)
+            {
+                if(first)
+                {
+                    checkinString += server;
+                    first = false;
+                } else
+                {
+                    checkinString += ", ";
+                    checkinString += server;
+                }
+            }
+        } else
+        {
+            checkinString = $"Hello {userName}, and thanks for stopping by the Eclipse!";
+        }
+
+        return checkinString;
+    }
+
+    static async Task<bool> IsInChatterList(string userName)
+    {
+        List<int> chatterList = (await FindChatterByUser(userName)).ToList();
+
+        return chatterList.Any();
+    }
+
+    static async Task<bool> IsInUserList(string userName)
+    {
+        List<User> userList = (await FindUser(userName)).ToList();
+
+        return userList.Any();
+    }
+
+    static async Task<bool> IsInServerList(string twitchId)
+    {
+        List<Server> serverList = (await FindServerByTwitchId(twitchId)).ToList();
+
+        return serverList.Any();
+    }
+
+    static async Task<bool> IsUserInGivenServer(int userId, int serverId)
+    {
+        const string query = "SELECT * FROM user_servers WHERE userId = @UserId AND serverId = @ServerId;";
+        List<UserServer> listing = (await sqlConnection.QueryAsync<UserServer>(query, new { UserId = userId, ServerId = serverId })).ToList();
+
+        return listing.Any();
+    }
+
+    static async Task<bool> IsInEventTypeList(string eventName)
+    {
+        List<EventType> eventTypeList = (await FindEventType(eventName)).ToList();
+
+        return eventTypeList.Any();
+    }
+
+    static async Task<bool> IsUserBanned(string user)
+    {
+        int userId = await GetUserId(user);
+        const string query = "SELECT bannedUserId FROM banned_users WHERE bannedUserId = @BannedUser;";
+        List<int> listing = (await sqlConnection.QueryAsync<int>(query, new { BannedUser = userId })).ToList();
+
+        return listing.Any();
+    }
+
+    static async Task<bool> IsInEventList(string user, string eventType)
+    {
+        int userId = await GetUserId(user);
+        int eventTypeId = await GetEventTypeId(eventType);
+
+        const string query = "SELECT eventId FROM events WHERE eventTypeId = @EventType AND userId = @User;";
+        List<int> listing = (await sqlConnection.QueryAsync<int>(query, new { EventType = eventTypeId, User = userId })).ToList();
+
+        return listing.Any();
+    }
+
+    private static async Task<IEnumerable<int>> FindChatterByUser(string userName)
+    {
+        const string query = "SELECT chatters.chatterId FROM chatters INNER JOIN users ON chatters.chatterId = users.userId WHERE users.userName = @UserName;";
+        return await sqlConnection.QueryAsync<int>(query, new { UserName = userName });
+    }
+
+    private static async Task<IEnumerable<User>> FindUser(string userName)
+    {
+        const string query = "SELECT userId, userName, discordName FROM users WHERE userName = @UserName;";
+        return await sqlConnection.QueryAsync<User>(query, new { UserName = userName });
+    }
+
+    private static async Task<IEnumerable<string>> FindAllServersGivenUser(string userName)
+    {
+        const string query = "SELECT servers.serverName FROM users INNER JOIN user_servers ON users.userId = user_servers.userId INNER JOIN servers ON user_servers.serverId = servers.serverId WHERE users.userName = @UserName;";
+        return await sqlConnection.QueryAsync<string>(query, new { UserName = userName });
+    }
+
+    private static async Task<IEnumerable<Server>> FindServerByTwitchId(string twitchId)
+    {
+        const string query = "SELECT serverId, serverName, twitchId FROM servers WHERE twitchId = @TwitchId;";
+        return await sqlConnection.QueryAsync<Server>(query, new { TwitchId = twitchId });
+    }
+
+    private static async Task<IEnumerable<EventType>> FindEventType(string eventTypeName)
+    {
+        const string query = "SELECT eventTypeId, eventTypeName FROM eventTypes WHERE eventTypeName = @EventTypeName;";
+        return await sqlConnection.QueryAsync<EventType>(query, new { EventTypeName = eventTypeName });
+    }
+
+    private static async Task<int> GetUserId (string userName)
+    {
+        if(await IsInUserList(userName))
+        {
+            const string query = "SELECT userId FROM users WHERE userName = @UserName;";
+            return await sqlConnection.QueryFirstOrDefaultAsync<int>(query, new { UserName = userName });
+        } else
+        {
+            return -1; // Negative user IDs are not possible, so -1 is an error value
+        }
+    }
+
+    private static async Task<int> GetEventTypeId (string eventType)
+    {
+        if(await IsInEventTypeList(eventType))
+        {
+            const string query = "SELECT eventTypeId FROM eventTypes WHERE eventTypeName = @EventType;";
+            return await sqlConnection.QueryFirstOrDefaultAsync<int>(query, new { EventType = eventType });
+        } else
+        {
+            return -1; // Negative user IDs are not possible, so -1 is an error value
+        }
+    }
+
+    private static async Task<int> InsertChatter(int newUser)
+    {
+        const string query = "INSERT INTO chatters(userId) VALUES (@NewUser);";
+        return await sqlConnection.ExecuteAsync(query, new { NewUser = newUser });
+    }
+
+    private static async Task<int> InsertUser(string newUserName)
+    {
+        const string userInsertQuery = "INSERT INTO users(userName) VALUES (@NewUser);";
+        return await sqlConnection.ExecuteAsync(userInsertQuery, new { NewUser = newUserName });
+    }
+
+    private static async Task<int> InsertUser(string newUserName, string newDiscordName)
+    {
+        const string userInsertQuery = "INSERT INTO users(userName, discordName) VALUES (@NewUser, @Discord);";
+        return await sqlConnection.ExecuteAsync(userInsertQuery, new { NewUser = newUserName, Discord = newDiscordName });
+    }
+
+    private static async Task<int> InsertUserCheckin(int userId, int serverId)
+    {
+        const string checkinInsertQuery = "INSERT INTO user_servers(userId, serverId) VALUES (@NewUser, @NewServer);";
+        return await sqlConnection.ExecuteAsync(checkinInsertQuery, new { NewUser = userId, NewServer = serverId });
+    }
+
+    private static async Task<int> InsertEvent(int userId, int eventTypeId)
+    {
+        const string eventInsertQuery = "INSERT INTO events(userId, eventTypeId) VALUES (@User, @EventType);";
+        return await sqlConnection.ExecuteAsync(eventInsertQuery, new { User = userId, EventType = eventTypeId });
+    }
+
+    private static async Task<int> InsertEvent(string userName, string eventTypeName)
+    {
+        int userId = await GetUserId(userName);
+        int eventTypeId = await GetEventTypeId(eventTypeName);
+        return await InsertEvent(userId, eventTypeId);
+    }
+
+    private static async Task UserCheckin(string user, string title, string twitchId)
+    {
+        if (await IsInServerList(twitchId))
+        {
+            const string serverQuery = "SELECT serverId, serverName, twitchId FROM servers WHERE twitchId = @TwitchId;";
+            Server currentServer = await sqlConnection.QueryFirstOrDefaultAsync<Server>(serverQuery, new { TwitchId = twitchId });
+
+
+            if (await IsInUserList(user) == false)
+            {
+                await InsertUser(user);
+            }
+
+            int userId = await GetUserId(user);
+
+            if(await IsUserInGivenServer(userId, currentServer.ServerId))
+            {
+                string newMessage = user + ", you're already checked into " + currentServer.ServerName + "!  Now that we have automatic checkins there is no need to redeem the channel point every stream!";
+                twitchClient.SendMessage(config.Root?.Element("twitch-channel")?.Value, newMessage);
+            } else
+            {
+                string newMessage = "Thank you " + user + " for checking in to " + currentServer.ServerName + "!";
+                await InsertUserCheckin(userId, currentServer.ServerId);
+                twitchClient.SendMessage(config.Root?.Element("twitch-channel")?.Value, newMessage);
+            }
+
+            Console.WriteLine("Debug line: Server " + currentServer.ServerName + " checked in.  ID is " + currentServer.ServerId + ".  Username is " + user + ".");
+        }
+
+    }
+
+    static async Task<bool> Follow(string userName)
+    {
+        Console.WriteLine("Debug line: " + userName + " followed");
+
+        bool inUserList = await IsInUserList(userName);
+        if(!inUserList)
+        {
+            await InsertUser(userName);
+        }
+
+        bool inEventList = await IsInEventList(userName, "Follow");
+        if(!inEventList)
+        {
+            await InsertEvent(userName, "Follow");
+        }
+        twitchClient.SendMessage(config.Root?.Element("twitch-channel")?.Value, "Thank you " + userName + " for the follow!");
+        return inEventList;
+    }
+
+    static async Task<bool> Subscribe(string userName, bool isGift)
+    {
+        Console.WriteLine("Debug line: " + userName + " subbed");
+
+        bool inUserList = await IsInUserList(userName);
+        if (!inUserList)
+        {
+            await InsertUser(userName);
+        }
+
+        bool inEventList = await IsInEventList(userName, "Subscription");
+        if (!inEventList)
+        {
+            await InsertEvent(userName, "Subscription");
+        }
+
+        if (!isGift)
+        {
+            twitchClient.SendMessage(config.Root?.Element("twitch-channel")?.Value, "Thank you " + userName + " for the sub!");
+        }
+        return inEventList;
+    }
+
+    static async Task<bool> ReSub(string userName, int months)
+    {
+        Console.WriteLine("Debug line: " + userName + " resubbed for " + months + " months");
+
+        bool inUserList = await IsInUserList(userName);
+        if (!inUserList)
+        {
+            await InsertUser(userName);
+        }
+
+        bool inEventList = await IsInEventList(userName, "Subscription");
+        if (!inEventList)
+        {
+            await InsertEvent(userName, "Subscription");
+        }
+
+        string suffix;
+
+        switch(months % 10)
+        {
+            case 1:
+                if(months == 11)
+                {
+                    suffix = "th";
+                } else
+                {
+                    suffix = "st";
+                }
+                break;
+            case 2:
+                if(months == 12)
+                {
+                    suffix = "th";
+                } else
+                {
+                    suffix = "nd";
+                }
+                break;
+            case 3:
+                if(months == 13)
+                {
+                    suffix = "th";
+                } else
+                {
+                    suffix = "rd";
+                }
+                break;
+            default:
+                suffix = "th";
+                break;
+        }
+
+        twitchClient.SendMessage(config.Root?.Element("twitch-channel")?.Value, "Thank you " + userName + " for subbing for the " + months + suffix + " month!");
+
+        return inEventList;
+    }
+
+    static async Task<bool> GiftSub(string gifter, int numGifted)
+    {
+        Console.WriteLine("Debug line: " + gifter + " gifted " + numGifted + " subs");
+
+        bool inUserList = await IsInUserList(gifter);
+        if (!inUserList)
+        {
+            await InsertUser(gifter);
+        }
+
+        bool inEventList = await IsInEventList(gifter, "Gift Sub");
+        if (!inEventList)
+        {
+            await InsertEvent(gifter, "Gift Sub");
+        }
+
+        if (numGifted == 1)
+        {
+            twitchClient.SendMessage(config.Root?.Element("twitch-channel")?.Value, "Thank you " + gifter + " for the gift sub!");
+        }
+        else
+        {
+            twitchClient.SendMessage(config.Root?.Element("twitch-channel")?.Value, "Thank you " + gifter + " for the " + numGifted + " gift subs!");
+        }
+
+        return inEventList;
+    }
+
+    static async Task<bool> Bitties(string user, int numCheered)
+    {
+        Console.WriteLine("Debug line: " + user + " cheered " + numCheered + " bitties");
+
+        bool inUserList = await IsInUserList(user);
+        if(!inUserList)
+        {
+            await InsertUser(user);
+        }
+
+        bool inEventList = await IsInEventList(user, "Bitties");
+        if(!inEventList)
+        {
+            await InsertEvent(user, "Bitties");
+        }
+
+        if(numCheered == 1)
+        {
+            twitchClient.SendMessage(config.Root?.Element("twitch-channel")?.Value, "Thank you " + user + " for the cheer!  The bittie is greatly appreciated!");
+        } else
+        {
+            twitchClient.SendMessage(config.Root?.Element("twitch-channel")?.Value, "Thank you " + user + " for the cheer!  The " + numCheered + " bitties are greatly appreciated!");
+        }
+
+        return inEventList;
+    }
+
+    static async Task<bool> Raid(string user, int numRaiders)
+    {
+        Console.WriteLine("Debug line: " + user + " raided with " + numRaiders + " viewers");
+
+        bool inUserList = await IsInUserList(user);
+        if (!inUserList)
+        {
+            await InsertUser(user);
+        }
+
+        bool inEventList = await IsInEventList(user, "Raid");
+        if (!inEventList)
+        {
+            await InsertEvent(user, "Raid");
+        }
+
+        if(numRaiders == 1)
+        {
+            twitchClient.SendMessage(config.Root?.Element("twitch-channel")?.Value, "Thank you " + user + " for the raid!  I'm glad to welcome in your viewer!");
+        } else
+        {
+            twitchClient.SendMessage(config.Root?.Element("twitch-channel")?.Value, "Thank you " + user + " for the raid!  I'm glad to welcome in your " + numRaiders + " viewers!");
+        }
+
+        return inEventList;
+    }
+
+    static async Task EnsureValidTokenAsync()
+    {
+        string? clientId = config.Root?.Element("twitch-client-id")?.Value;
+        string? clientSecret = config.Root?.Element("twitch-client-secret")?.Value;
+        string? refreshToken = config.Root?.Element("twitch-client-refresh-token")?.Value;
+
+        TwitchLib.Api.Auth.ValidateAccessTokenResponse? validation = await twitchApi.Auth.ValidateAccessTokenAsync();
+
+        // Valid and not about to expire (more than 10 minutes left): nothing to do
+        if (validation != null && validation.ExpiresIn > 600)
+        {
+            Console.WriteLine($"Twitch token OK for {validation.Login}, expires in {validation.ExpiresIn}s.");
+            return;
+        }
+
+        Console.WriteLine("Twitch token is invalid or expiring soon; refreshing...");
+
+        TwitchLib.Api.Auth.RefreshResponse refreshed = await twitchApi.Auth.RefreshAuthTokenAsync(refreshToken, clientSecret, clientId);
+
+        twitchApi.Settings.AccessToken = refreshed.AccessToken;
+
+        config.Root!.Element("twitch-client-access-token")!.Value = refreshed.AccessToken;
+        config.Root!.Element("twitch-client-refresh-token")!.Value = refreshed.RefreshToken;
+        config.Save("config.xml");
+
+        Console.WriteLine("Twitch token refreshed and saved.");
+    }
+
     static async Task Main(string[] args)
     {
-        await client.StartAsync();
-        await client.Rest.SendMessageAsync(ulong.Parse(config.Root?.Element("test-channel")?.Value), "Hello World");
+        await discordClient.StartAsync();
+
+        // Validate config values
+        var twitchUsername = config.Root?.Element("twitch-username")?.Value;
+        var twitchToken = config.Root?.Element("twitch-token")?.Value;
+        var twitchChannel = config.Root?.Element("twitch-channel")?.Value;
+        var testChannel = config.Root?.Element("test-channel")?.Value;
+
+        if (string.IsNullOrWhiteSpace(twitchUsername) || string.IsNullOrWhiteSpace(twitchToken) || string.IsNullOrWhiteSpace(testChannel))
+        {
+            Console.WriteLine("Missing twitch-username, twitch-token or test-channel in config.xml");
+            return;
+        }
+
+        // If a specific channel to join isn't set, default to the twitchUsername (bot account)
+        if (string.IsNullOrWhiteSpace(twitchChannel))
+        {
+            Console.WriteLine("No 'twitch-channel' specified in config.xml; defaulting to the twitch-username value.");
+            twitchChannel = twitchUsername;
+        }
+
+        if (!twitchToken.StartsWith("oauth:", StringComparison.OrdinalIgnoreCase))
+        {
+            Console.WriteLine("Twitch token is missing the 'oauth:' prefix. Prepending it for connection attempt.");
+            twitchToken = "oauth:" + twitchToken;
+        }
+
+        twitchCredentials = new ConnectionCredentials(twitchUsername, twitchToken);
+
+        // attach diagnostic handlers before connecting
+        twitchClient.OnLog += (sender, e) => Console.WriteLine($"TwitchLog: {e.Data}");
+        twitchClient.OnConnectionError += (sender, e) => Console.WriteLine($"Twitch IRC connection error: {e.Error?.Message}");
+        twitchClient.OnDisconnected += (sender, e) => Console.WriteLine("Twitch IRC disconnected");
+        twitchClient.OnJoinedChannel += (sender, e) => Console.WriteLine($"Joined IRC channel: {e.Channel}");
+        twitchClient.OnConnected += (sender, e) => Console.WriteLine("Connected to Twitch IRC");
+        eventSub.WebsocketConnected += async (sender, e) =>
+        {
+#if DEBUG
+            return;
+#else
+            if (e.IsRequestedReconnect) return;
+
+            try
+            {
+                await twitchApi.Helix.EventSub.CreateEventSubSubscriptionAsync(
+                    "channel.channel_points_custom_reward_redemption.add",
+                    "1",
+                    new Dictionary<string, string> { { "broadcaster_user_id", config.Root?.Element("twitch-channel-id")?.Value } },
+                    TwitchLib.Api.Core.Enums.EventSubTransportMethod.Websocket,
+                    eventSub.SessionId);
+
+                Console.WriteLine("Subscribed to channel point redemptions");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"EventSub subscription failed: {ex.Message}");
+            }
+#endif
+
+            Console.WriteLine("Connected to Twitch API");
+        };
+        eventSub.WebsocketDisconnected += async (object? sender, EventArgs e) =>
+        {
+            // Skip if a reconnect is already running
+            if (!await reconnectLock.WaitAsync(0))
+                return;
+
+            try
+            {
+                Console.WriteLine("EventSub disconnected; reconnecting...");
+
+                int delaySeconds = 1;
+                while (true)
+                {
+                    try
+                    {
+                        await EnsureValidTokenAsync();
+
+                        if (await eventSub.ConnectAsync(eventSubUrl))
+                        {
+                            Console.WriteLine("EventSub reconnected.");
+                            break;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"EventSub reconnect attempt failed: {ex.Message}");
+                    }
+
+                    Console.WriteLine($"Retrying EventSub connection in {delaySeconds}s...");
+                    await Task.Delay(TimeSpan.FromSeconds(delaySeconds));
+                    delaySeconds = Math.Min(delaySeconds * 2, 30);
+                }
+            }
+            finally
+            {
+                reconnectLock.Release();
+            }
+        };
+
+        twitchClient.OnMessageReceived += async (sender, e) =>
+        {
+            timeString = FindTime();
+            Console.WriteLine($"{timeString} Meow!  {e.ChatMessage.Username} said \"{e.ChatMessage.Message}\"");
+            try
+            {
+                switch(e.ChatMessage.Username)
+                {
+                    case "KatCatte":
+                        trill.Play();
+                        break;
+                    default:
+                        if (await IsUserBanned(e.ChatMessage.Username) == false)
+                        {
+                            await CheckChatterList(e.ChatMessage.Username);
+                            meow.Play();
+                        } 
+                        break;
+                }
+                await discordClient.Rest.SendMessageAsync(ulong.Parse(testChannel), $"{timeString} Meow!  {e.ChatMessage.Username} said \"{e.ChatMessage.Message}\"");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to forward message to Discord: {ex.Message}");
+            }
+        };
+
+        eventSub.ChannelPointsCustomRewardRedemptionAdd += async (object? sender, ChannelPointsCustomRewardRedemptionArgs e) =>
+        {
+            Console.WriteLine($"Redeemed: \"{e.Notification.Payload.Event.Reward.Title}\" ({e.Notification.Payload.Event.Reward.Id})");
+
+            await UserCheckin(e.Notification.Payload.Event.UserName, e.Notification.Payload.Event.Reward.Title, e.Notification.Payload.Event.Reward.Id);
+
+            await Task.CompletedTask;
+        };
+
+        eventSub.ChannelFollow += async (object? sender, ChannelFollowArgs e) =>
+        {
+            await Follow(e.Notification.Payload.Event.UserName);
+        };
+
+        eventSub.ChannelSubscribe += async (object? sender, ChannelSubscribeArgs e) =>
+        {
+            await Subscribe(e.Notification.Payload.Event.UserName, e.Notification.Payload.Event.IsGift);
+        };
+
+        eventSub.ChannelSubscriptionMessage += async (object? sender, ChannelSubscriptionMessageArgs e) =>
+        {
+            await ReSub(e.Notification.Payload.Event.UserName, e.Notification.Payload.Event.CumulativeTotal);
+        };
+
+        eventSub.ChannelSubscriptionGift += async (object? sender, ChannelSubscriptionGiftArgs e) =>
+        {
+            await GiftSub(e.Notification.Payload.Event.UserName, e.Notification.Payload.Event.Total);
+        };
+
+        eventSub.ChannelCheer += async (object? sender, ChannelCheerArgs e) =>
+        {
+            await Bitties(e.Notification.Payload.Event.UserName, e.Notification.Payload.Event.Bits);
+        };
+
+        eventSub.ChannelRaid += async (object? sender, ChannelRaidArgs e) =>
+        {
+            await Raid(e.Notification.Payload.Event.FromBroadcasterUserName, e.Notification.Payload.Event.Viewers);
+        };
+
+        // Initialize with the channel you want the bot to join (twitchChannel).
+        twitchClient.Initialize(twitchCredentials, twitchChannel);
+        twitchClient.Connect();
+
+
+        eventSub.ErrorOccurred += async (object? sender, TwitchLib.EventSub.Websockets.Core.EventArgs.ErrorOccuredArgs e) =>
+        {
+            Console.WriteLine($"EventSub error: {e.Exception}");
+            await Task.CompletedTask;
+        };
+
+        await EnsureValidTokenAsync();
+
+        // Debug lines to find the channel point IDs
+        try
+        {
+            TwitchLib.Api.Helix.Models.ChannelPoints.GetCustomReward.GetCustomRewardsResponse rewards =
+                await twitchApi.Helix.ChannelPoints.GetCustomRewardAsync(config.Root?.Element("twitch-channel-id")?.Value);
+
+            foreach (TwitchLib.Api.Helix.Models.ChannelPoints.CustomReward reward in rewards.Data)
+            {
+                Console.WriteLine($"{reward.Id}  |  {reward.Title}  |  {reward.Cost} points  |  enabled: {reward.IsEnabled}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to list rewards: {ex.Message}");
+        }
+
+        await eventSub.ConnectAsync(eventSubUrl);
+
+        await discordClient.Rest.SendMessageAsync(ulong.Parse(testChannel), FindTime() + " Hello World");
         await Task.Delay(-1);
     }
 }
