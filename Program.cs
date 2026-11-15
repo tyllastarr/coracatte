@@ -43,7 +43,9 @@ class Program
 
     static EventSubWebsocketClient eventSub = eventSubServiceProvider.GetRequiredService<EventSubWebsocketClient>();
 
-    static readonly Uri eventSubUrl = new Uri("wss://eventsub.wss.twitch.tv/ws");
+//    static readonly Uri eventSubUrl = new Uri("wss://eventsub.wss.twitch.tv/ws"); // This is for release
+    static readonly Uri eventSubUrl = new Uri("wss://127.0.0.1/ws"); // This is for debug
+
     static readonly SemaphoreSlim reconnectLock = new SemaphoreSlim(1, 1);
 
     static string sqlConnectionString = "Server=" + config.Root?.Element("sql-server")?.Value + ";Database=" + config.Root?.Element("sql-database")?.Value + ";User ID=" + config.Root?.Element("sql-username")?.Value + ";Password=" + config.Root?.Element("sql-password")?.Value + ";";
@@ -148,6 +150,13 @@ class Program
         return listing.Any();
     }
 
+    static async Task<bool> IsInEventTypeList(string eventName)
+    {
+        List<EventType> eventTypeList = (await FindEventType(eventName)).ToList();
+
+        return eventTypeList.Any();
+    }
+
     static async Task<bool> IsUserBanned(string user)
     {
         int userId = await GetUserId(user);
@@ -160,7 +169,12 @@ class Program
     static async Task<bool> IsInEventList(string user, string eventType)
     {
         int userId = await GetUserId(user);
-        // TODO: Get event ID and then check for event list
+        int eventTypeId = await GetEventTypeId(eventType);
+
+        const string query = "SELECT eventId FROM events WHERE eventTypeId = @EventType AND userId = @User;";
+        List<int> listing = (await sqlConnection.QueryAsync<int>(query, new { EventType = eventTypeId, User = userId })).ToList();
+
+        return listing.Any();
     }
 
     private static async Task<IEnumerable<int>> FindChatterByUser(string userName)
@@ -187,6 +201,12 @@ class Program
         return await sqlConnection.QueryAsync<Server>(query, new { TwitchId = twitchId });
     }
 
+    private static async Task<IEnumerable<EventType>> FindEventType(string eventTypeName)
+    {
+        const string query = "SELECT eventTypeId, eventTypeName FROM eventTypes WHERE eventTypeName = @EventTypeName;";
+        return await sqlConnection.QueryAsync<EventType>(query, new { EventTypeName = eventTypeName });
+    }
+
     private static async Task<int> GetUserId (string userName)
     {
         if(await IsInUserList(userName))
@@ -201,7 +221,14 @@ class Program
 
     private static async Task<int> GetEventTypeId (string eventType)
     {
-        // TODO: Write get event name
+        if(await IsInEventTypeList(eventType))
+        {
+            const string query = "SELECT eventTypeId FROM eventTypes WHERE eventTypeName = @EventType;";
+            return await sqlConnection.QueryFirstOrDefaultAsync<int>(query, new { EventType = eventType });
+        } else
+        {
+            return -1; // Negative user IDs are not possible, so -1 is an error value
+        }
     }
 
     private static async Task<int> InsertChatter(int newUser)
@@ -226,6 +253,19 @@ class Program
     {
         const string checkinInsertQuery = "INSERT INTO user_servers(userId, serverId) VALUES (@NewUser, @NewServer);";
         return await sqlConnection.ExecuteAsync(checkinInsertQuery, new { NewUser = userId, NewServer = serverId });
+    }
+
+    private static async Task<int> InsertEvent(int userId, int eventTypeId)
+    {
+        const string eventInsertQuery = "INSERT INTO events(userId, eventTypeId) VALUES (@User, @EventType);";
+        return await sqlConnection.ExecuteAsync(eventInsertQuery, new { User = userId, EventType = eventTypeId });
+    }
+
+    private static async Task<int> InsertEvent(string userName, string eventTypeName)
+    {
+        int userId = await GetUserId(userName);
+        int eventTypeId = await GetEventTypeId(eventTypeName);
+        return await InsertEvent(userId, eventTypeId);
     }
 
     private static async Task UserCheckin(string user, string title, string twitchId)
@@ -261,7 +301,13 @@ class Program
 
     static async Task<bool> Follow(string userName)
     {
-        // TODO: Check for in event list; if not in list, add
+        bool inList = await IsInEventList(userName, "Follow");
+        if(!inList)
+        {
+            await InsertEvent(userName, "Follow");
+        }
+        twitchClient.SendMessage(config.Root?.Element("twitch-channel")?.Value, "Thank you " + userName + " for the follow!");
+        return inList;
     }
 
     static async Task EnsureValidTokenAsync()
@@ -428,8 +474,7 @@ class Program
 
         eventSub.ChannelFollow += async (object? sender, ChannelFollowArgs e) =>
         {
-            bool inEventList = await Follow(e.Notification.Payload.Event.UserName);
-            // TODO: Check for presence in event list
+            await Follow(e.Notification.Payload.Event.UserName);
         };
 
         // Initialize with the channel you want the bot to join (twitchChannel).
