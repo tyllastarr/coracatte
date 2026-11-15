@@ -44,7 +44,7 @@ class Program
     static EventSubWebsocketClient eventSub = eventSubServiceProvider.GetRequiredService<EventSubWebsocketClient>();
 
 //    static readonly Uri eventSubUrl = new Uri("wss://eventsub.wss.twitch.tv/ws"); // This is for release
-    static readonly Uri eventSubUrl = new Uri("wss://127.0.0.1/ws"); // This is for debug
+    static readonly Uri eventSubUrl = new Uri("ws://127.0.0.1:8080/ws"); // This is for debug
 
     static readonly SemaphoreSlim reconnectLock = new SemaphoreSlim(1, 1);
 
@@ -301,13 +301,21 @@ class Program
 
     static async Task<bool> Follow(string userName)
     {
-        bool inList = await IsInEventList(userName, "Follow");
-        if(!inList)
+        Console.WriteLine("Debug line: followed");
+
+        bool inUserList = await IsInUserList(userName);
+        if(!inUserList)
+        {
+            await InsertUser(userName);
+        }
+
+        bool inEventList = await IsInEventList(userName, "Follow");
+        if(!inEventList)
         {
             await InsertEvent(userName, "Follow");
         }
         twitchClient.SendMessage(config.Root?.Element("twitch-channel")?.Value, "Thank you " + userName + " for the follow!");
-        return inList;
+        return inEventList;
     }
 
     static async Task EnsureValidTokenAsync()
@@ -377,6 +385,9 @@ class Program
         twitchClient.OnConnected += (sender, e) => Console.WriteLine("Connected to Twitch IRC");
         eventSub.WebsocketConnected += async (sender, e) =>
         {
+#if DEBUG
+            return;
+#else
             if (e.IsRequestedReconnect) return;
 
             try
@@ -394,6 +405,7 @@ class Program
             {
                 Console.WriteLine($"EventSub subscription failed: {ex.Message}");
             }
+#endif
 
             Console.WriteLine("Connected to Twitch API");
         };
