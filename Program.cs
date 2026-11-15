@@ -357,6 +357,44 @@ class Program
             await InsertEvent(userName, "Subscription");
         }
 
+        string suffix;
+
+        switch(months % 10)
+        {
+            case 1:
+                if(months == 11)
+                {
+                    suffix = "th";
+                } else
+                {
+                    suffix = "st";
+                }
+                break;
+            case 2:
+                if(months == 12)
+                {
+                    suffix = "th";
+                } else
+                {
+                    suffix = "nd";
+                }
+                break;
+            case 3:
+                if(months == 13)
+                {
+                    suffix = "th";
+                } else
+                {
+                    suffix = "rd";
+                }
+                break;
+            default:
+                suffix = "th";
+                break;
+        }
+
+        twitchClient.SendMessage(config.Root?.Element("twitch-channel")?.Value, "Thank you " + userName + " for subbing for the " + months + suffix + " month!");
+
         return inEventList;
     }
 
@@ -374,6 +412,15 @@ class Program
         if (!inEventList)
         {
             await InsertEvent(gifter, "Gift Sub");
+        }
+
+        if (numGifted == 1)
+        {
+            twitchClient.SendMessage(config.Root?.Element("twitch-channel")?.Value, "Thank you " + gifter + " for the gift sub!");
+        }
+        else
+        {
+            twitchClient.SendMessage(config.Root?.Element("twitch-channel")?.Value, "Thank you " + gifter + " for the " + numGifted + " gift subs!");
         }
 
         return inEventList;
@@ -395,6 +442,14 @@ class Program
             await InsertEvent(user, "Bitties");
         }
 
+        if(numCheered == 1)
+        {
+            twitchClient.SendMessage(config.Root?.Element("twitch-channel")?.Value, "Thank you " + user + " for the cheer!  The bittie is greatly appreciated!");
+        } else
+        {
+            twitchClient.SendMessage(config.Root?.Element("twitch-channel")?.Value, "Thank you " + user + " for the cheer!  The " + numCheered + " bitties are greatly appreciated!");
+        }
+
         return inEventList;
     }
 
@@ -412,6 +467,14 @@ class Program
         if (!inEventList)
         {
             await InsertEvent(user, "Raid");
+        }
+
+        if(numRaiders == 1)
+        {
+            twitchClient.SendMessage(config.Root?.Element("twitch-channel")?.Value, "Thank you " + user + " for the raid!  I'm glad to welcome in your viewer!");
+        } else
+        {
+            twitchClient.SendMessage(config.Root?.Element("twitch-channel")?.Value, "Thank you " + user + " for the raid!  I'm glad to welcome in your " + numRaiders + " viewers!");
         }
 
         return inEventList;
