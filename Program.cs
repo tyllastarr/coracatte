@@ -301,7 +301,7 @@ class Program
 
     static async Task<bool> Follow(string userName)
     {
-        Console.WriteLine("Debug line: followed");
+        Console.WriteLine("Debug line: " + userName + " followed");
 
         bool inUserList = await IsInUserList(userName);
         if(!inUserList)
@@ -315,6 +315,67 @@ class Program
             await InsertEvent(userName, "Follow");
         }
         twitchClient.SendMessage(config.Root?.Element("twitch-channel")?.Value, "Thank you " + userName + " for the follow!");
+        return inEventList;
+    }
+
+    static async Task<bool> Subscribe(string userName, bool isGift)
+    {
+        Console.WriteLine("Debug line: " + userName + " subbed");
+
+        bool inUserList = await IsInUserList(userName);
+        if (!inUserList)
+        {
+            await InsertUser(userName);
+        }
+
+        bool inEventList = await IsInEventList(userName, "Subscription");
+        if (!inEventList)
+        {
+            await InsertEvent(userName, "Subscription");
+        }
+
+        if (!isGift)
+        {
+            twitchClient.SendMessage(config.Root?.Element("twitch-channel")?.Value, "Thank you " + userName + " for the sub!");
+        }
+        return inEventList;
+    }
+
+    static async Task<bool> ReSub(string userName, int months)
+    {
+        Console.WriteLine("Debug line: " + userName + " resubbed for " + months + " months");
+
+        bool inUserList = await IsInUserList(userName);
+        if (!inUserList)
+        {
+            await InsertUser(userName);
+        }
+
+        bool inEventList = await IsInEventList(userName, "Subscription");
+        if (!inEventList)
+        {
+            await InsertEvent(userName, "Subscription");
+        }
+
+        return inEventList;
+    }
+
+    static async Task<bool> GiftSub(string gifter, int numGifted)
+    {
+        Console.WriteLine("Debug line: " + gifter + " gifted " + numGifted + " subs");
+
+        bool inUserList = await IsInUserList(gifter);
+        if (!inUserList)
+        {
+            await InsertUser(gifter);
+        }
+
+        bool inEventList = await IsInEventList(gifter, "Gift Sub");
+        if (!inEventList)
+        {
+            await InsertEvent(gifter, "Gift Sub");
+        }
+
         return inEventList;
     }
 
@@ -487,6 +548,21 @@ class Program
         eventSub.ChannelFollow += async (object? sender, ChannelFollowArgs e) =>
         {
             await Follow(e.Notification.Payload.Event.UserName);
+        };
+
+        eventSub.ChannelSubscribe += async (object? sender, ChannelSubscribeArgs e) =>
+        {
+            await Subscribe(e.Notification.Payload.Event.UserName, e.Notification.Payload.Event.IsGift);
+        };
+
+        eventSub.ChannelSubscriptionMessage += async (object? sender, ChannelSubscriptionMessageArgs e) =>
+        {
+            await ReSub(e.Notification.Payload.Event.UserName, e.Notification.Payload.Event.CumulativeTotal);
+        };
+
+        eventSub.ChannelSubscriptionGift += async (object? sender, ChannelSubscriptionGiftArgs e) =>
+        {
+            await GiftSub(e.Notification.Payload.Event.UserName, e.Notification.Payload.Event.Total);
         };
 
         // Initialize with the channel you want the bot to join (twitchChannel).
