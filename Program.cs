@@ -43,8 +43,11 @@ class Program
 
     static EventSubWebsocketClient eventSub = eventSubServiceProvider.GetRequiredService<EventSubWebsocketClient>();
 
-//    static readonly Uri eventSubUrl = new Uri("wss://eventsub.wss.twitch.tv/ws"); // This is for release
+#if DEBUG
     static readonly Uri eventSubUrl = new Uri("ws://127.0.0.1:8080/ws"); // This is for debug
+#else
+    static readonly Uri eventSubUrl = new Uri("wss://eventsub.wss.twitch.tv/ws"); // This is for release
+#endif
 
     static readonly SemaphoreSlim reconnectLock = new SemaphoreSlim(1, 1);
 
